@@ -719,12 +719,20 @@ export default function App() {
                 <div className="flex items-center justify-end gap-1 relative w-full">
                   <div className="relative" ref={person.id === activeAccessDropdown ? accessDropdownRef : null}>
                     <button 
-                      onClick={() => person.role !== 'Owner' && setActiveAccessDropdown(activeAccessDropdown === person.id ? null : person.id)}
-                      className={`flex items-center gap-1 text-sm text-gray-700 hover:bg-gray-100 px-2 py-1 rounded transition-colors ${person.role === 'Owner' ? 'cursor-default' : 'cursor-pointer'} justify-end`}
+                      onClick={() => {
+                        if (viewMode === 'advanced2') {
+                          setActiveAccessDropdown(activeAccessDropdown === person.id ? null : person.id);
+                        } else if (person.role !== 'Owner') {
+                          setActiveAccessDropdown(activeAccessDropdown === person.id ? null : person.id);
+                        }
+                      }}
+                      className={`flex items-center gap-1 text-sm text-gray-700 hover:bg-gray-100 px-2 py-1 rounded transition-colors ${
+                        (viewMode === 'advanced2' || person.role !== 'Owner') ? 'cursor-pointer' : 'cursor-default'
+                      } justify-end`}
                     >
                       <span>{person.role}</span>
                       <div className="w-4 h-4 flex items-center justify-center shrink-0">
-                        {person.role !== 'Owner' && <ChevronDown className="w-4 h-4 text-gray-400" />}
+                        {(viewMode === 'advanced2' || person.role !== 'Owner') && <ChevronDown className="w-4 h-4 text-gray-400" />}
                       </div>
                     </button>
 
@@ -741,6 +749,15 @@ export default function App() {
                             // Advanced 2 dropdown structure
                             <>
                               {/* Section 1: Roles and View/Explore options */}
+                              <button 
+                                onClick={() => updateRole(person.id, 'Owner')}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors group"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium text-gray-900">Owner</span>
+                                  {person.role === 'Owner' && <CheckCircle2 className="w-4 h-4 text-[#7A005D]" />}
+                                </div>
+                              </button>
                               <button 
                                 onClick={() => updateRole(person.id, 'Editor')}
                                 className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors group"
