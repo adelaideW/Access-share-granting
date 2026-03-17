@@ -39,12 +39,12 @@ interface Person {
 
 export default function App() {
   const [emailNotification, setEmailNotification] = useState(false);
-  const [viewMode, setViewMode] = useState<'default' | 'advanced' | 'advanced2'>('advanced');
+  const [viewMode, setViewMode] = useState<'default' | 'advanced' | 'advanced2'>('advanced2');
   const [isGeneralAccessOpen, setIsGeneralAccessOpen] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isBulkAddOpen, setIsBulkAddOpen] = useState(false);
-  const [selectedChips, setSelectedChips] = useState<string[]>(['All super admin', 'Self - Employee', 'Work location → San Francisco office', 'State → California, US location']);
+  const [selectedChips, setSelectedChips] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [showSnackbar, setShowSnackbar] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -261,18 +261,52 @@ export default function App() {
     { id: '7', names: ['Alfred Rivera'], role: 'Viewer', isGroup: false, title: 'Account Executive', department: 'SMB', avatar: 'https://i.pravatar.cc/150?u=alfred' }
   ]);
 
-  const handleAddPeople = () => {
-    if (selectedChips.length === 0) return;
-    
-    const newEntry: Person = {
-      id: Math.random().toString(36).substr(2, 9),
-      names: [...selectedChips],
-      role: 'Viewer',
-      isGroup: true
-    };
+  // Fake people for search in Advanced 2 mode
+  const [searchablePeople] = useState<Person[]>([
+    { id: 's1', names: ['Sarah Johnson'], role: 'Editor', isGroup: false, title: 'Product Manager', department: 'Product', avatar: 'https://i.pravatar.cc/150?u=sarah' },
+    { id: 's2', names: ['Michael Chen'], role: 'Viewer', isGroup: false, title: 'Designer', department: 'Design', avatar: 'https://i.pravatar.cc/150?u=michael' },
+    { id: 's3', names: ['Jessica Williams'], role: 'Collaborator', isGroup: false, title: 'Data Analyst', department: 'Analytics', avatar: 'https://i.pravatar.cc/150?u=jessica' },
+    { id: 's4', names: ['David Brown'], role: 'Viewer', isGroup: false, title: 'Marketing Manager', department: 'Marketing', avatar: 'https://i.pravatar.cc/150?u=david' },
+    { id: 's5', names: ['Emily Davis'], role: 'Editor', isGroup: false, title: 'DevOps Engineer', department: 'Engineering', avatar: 'https://i.pravatar.cc/150?u=emily' },
+    { id: 's6', names: ['James Martinez'], role: 'Viewer', isGroup: false, title: 'Sales Representative', department: 'Sales', avatar: 'https://i.pravatar.cc/150?u=james' },
+    { id: 's7', names: ['Maria Garcia'], role: 'Collaborator', isGroup: false, title: 'HR Manager', department: 'Human Resources', avatar: 'https://i.pravatar.cc/150?u=maria' },
+    { id: 's8', names: ['Robert Taylor'], role: 'Viewer', isGroup: false, title: 'Financial Analyst', department: 'Finance', avatar: 'https://i.pravatar.cc/150?u=robert' }
+  ]);
 
-    setPeople([...people, newEntry]);
-    setSelectedChips([]);
+  const handleAddPeople = () => {
+    if (selectedChips.length === 0 && inputValue.trim() === '') return;
+    
+    // For advanced2 mode with search input
+    if (viewMode === 'advanced2' && inputValue.trim() !== '') {
+      // Find person from searchablePeople
+      const foundPerson = searchablePeople.find(p => 
+        p.names[0].toLowerCase().includes(inputValue.toLowerCase())
+      );
+      
+      if (foundPerson) {
+        // Add as individual person
+        const newPerson: Person = {
+          ...foundPerson,
+          id: Math.random().toString(36).substr(2, 9),
+        };
+        setPeople([...people, newPerson]);
+        setInputValue('');
+        setIsInputFocused(false);
+        return;
+      }
+    }
+    
+    // Original behavior for group mode
+    if (selectedChips.length > 0) {
+      const newEntry: Person = {
+        id: Math.random().toString(36).substr(2, 9),
+        names: [...selectedChips],
+        role: 'Viewer',
+        isGroup: true
+      };
+      setPeople([...people, newEntry]);
+      setSelectedChips([]);
+    }
   };
 
   const removePerson = (id: string) => {
@@ -476,67 +510,127 @@ export default function App() {
                     exit={{ opacity: 0, y: 5 }}
                     className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-[400px] overflow-y-auto"
                   >
-                    <div className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-gray-100">Suggestions</div>
-                    {[
-                      { label: 'Team', desc: 'Person(s) that share one or more teams in common with employee' },
-                      { label: 'Peers', desc: 'Everyone (except the employee) who reports to the same manager' },
-                      { label: 'Reports', desc: 'Everyone that reports directly to the employee' },
-                      { label: 'All reports', desc: 'Everyone that reports up through the employee' },
-                      { label: 'Department', desc: 'Person(s) that share department in common with employee' },
-                      { label: 'Location', desc: 'Person(s) that share the same work location as employee' },
-                      { label: 'Entity', desc: 'Everyone in the same legal entity as the employee' },
-                      { label: 'Title', desc: 'Nearest manager up the reporting chain with the specified title', hasMore: true },
-                      { label: 'Level', desc: 'Nearest manager up the reporting chain at or above the specified level', hasMore: true },
-                      { label: 'Business partner', desc: 'The employee\'s business partner(s) of the...', hasMore: true },
-                      { label: 'Client group', desc: 'The business partner\'s supported employees for the specified business partner group', hasMore: true }
-                    ].map(option => (
-                      <button 
-                        key={option.label}
-                        onClick={() => addChip(option.label)}
-                        className="w-full px-4 py-2.5 text-left hover:bg-gray-50 transition-colors flex items-center justify-between group"
-                      >
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-gray-700">{option.label}: <span className="font-normal text-gray-500">{option.desc}</span></span>
-                        </div>
-                        {option.hasMore && <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />}
-                      </button>
-                    ))}
-                    
-                    <div className="px-4 py-2 mt-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-t border-gray-100 bg-gray-50">The Employee's</div>
-                    {[
-                      'Manager',
-                      'Hired by',
-                      'Work location → Employees in location',
-                      'Termination info → Direct reports new manager',
-                      'Termination info → Termination initiator',
-                      'Headcount Allocation → Associated employee',
-                      'Headcount Allocation → Backfill for employee',
-                      'Application → Referred by',
-                      'Application → Employee candidate',
-                      'Application → Application recruiter',
-                      'Application → Sourcing credit',
-                      'Application → Added by',
-                      'Candidate application → Referred by',
-                      'Current Long-term leave → Processed by'
-                    ].map(option => (
-                      <button 
-                        key={option}
-                        onClick={() => addChip(option)}
-                        className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-700 transition-colors flex items-center justify-between group"
-                      >
-                        <span>{option}</span>
-                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />
-                      </button>
-                    ))}
+                    {viewMode === 'advanced2' ? (
+                      // Search mode for Advanced 2
+                      <>
+                        {inputValue.trim() === '' ? (
+                          <div className="px-4 py-8 text-center">
+                            <Search className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">Start typing to search for people</p>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-gray-100">Search Results</div>
+                            {searchablePeople
+                              .filter(person => 
+                                person.names[0].toLowerCase().includes(inputValue.toLowerCase()) ||
+                                person.title?.toLowerCase().includes(inputValue.toLowerCase()) ||
+                                person.department?.toLowerCase().includes(inputValue.toLowerCase())
+                              )
+                              .map(person => (
+                                <button 
+                                  key={person.id}
+                                  onClick={() => {
+                                    const newPerson: Person = {
+                                      ...person,
+                                      id: Math.random().toString(36).substr(2, 9),
+                                    };
+                                    setPeople([...people, newPerson]);
+                                    setInputValue('');
+                                    setIsInputFocused(false);
+                                  }}
+                                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors flex items-center gap-3 border-b border-gray-100 last:border-0"
+                                >
+                                  <img 
+                                    src={person.avatar || `https://ui-avatars.com/api/?name=${person.names[0]}&background=random`} 
+                                    alt="" 
+                                    className="w-10 h-10 rounded-full object-cover"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="text-sm font-medium text-gray-900">{person.names[0]}</span>
+                                    <span className="text-xs text-gray-500">{person.title}, {person.department}</span>
+                                  </div>
+                                </button>
+                              ))}
+                            {searchablePeople.filter(person => 
+                              person.names[0].toLowerCase().includes(inputValue.toLowerCase()) ||
+                              person.title?.toLowerCase().includes(inputValue.toLowerCase()) ||
+                              person.department?.toLowerCase().includes(inputValue.toLowerCase())
+                            ).length === 0 && (
+                              <div className="px-4 py-8 text-center">
+                                <p className="text-sm text-gray-500">No people found</p>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      // Original suggestions for Default and Advanced modes
+                      <>
+                        <div className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-gray-100">Suggestions</div>
+                        {[
+                          { label: 'Team', desc: 'Person(s) that share one or more teams in common with employee' },
+                          { label: 'Peers', desc: 'Everyone (except the employee) who reports to the same manager' },
+                          { label: 'Reports', desc: 'Everyone that reports directly to the employee' },
+                          { label: 'All reports', desc: 'Everyone that reports up through the employee' },
+                          { label: 'Department', desc: 'Person(s) that share department in common with employee' },
+                          { label: 'Location', desc: 'Person(s) that share the same work location as employee' },
+                          { label: 'Entity', desc: 'Everyone in the same legal entity as the employee' },
+                          { label: 'Title', desc: 'Nearest manager up the reporting chain with the specified title', hasMore: true },
+                          { label: 'Level', desc: 'Nearest manager up the reporting chain at or above the specified level', hasMore: true },
+                          { label: 'Business partner', desc: 'The employee\'s business partner(s) of the...', hasMore: true },
+                          { label: 'Client group', desc: 'The business partner\'s supported employees for the specified business partner group', hasMore: true }
+                        ].map(option => (
+                          <button 
+                            key={option.label}
+                            onClick={() => addChip(option.label)}
+                            className="w-full px-4 py-2.5 text-left hover:bg-gray-50 transition-colors flex items-center justify-between group"
+                          >
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-gray-700">{option.label}: <span className="font-normal text-gray-500">{option.desc}</span></span>
+                            </div>
+                            {option.hasMore && <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />}
+                          </button>
+                        ))}
+                        
+                        <div className="px-4 py-2 mt-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-t border-gray-100 bg-gray-50">The Employee's</div>
+                        {[
+                          'Manager',
+                          'Hired by',
+                          'Work location → Employees in location',
+                          'Termination info → Direct reports new manager',
+                          'Termination info → Termination initiator',
+                          'Headcount Allocation → Associated employee',
+                          'Headcount Allocation → Backfill for employee',
+                          'Application → Referred by',
+                          'Application → Employee candidate',
+                          'Application → Application recruiter',
+                          'Application → Sourcing credit',
+                          'Application → Added by',
+                          'Candidate application → Referred by',
+                          'Current Long-term leave → Processed by'
+                        ].map(option => (
+                          <button 
+                            key={option}
+                            onClick={() => addChip(option)}
+                            className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-700 transition-colors flex items-center justify-between group"
+                          >
+                            <span>{option}</span>
+                            <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />
+                          </button>
+                        ))}
 
-                    <div className="px-4 py-2 mt-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-t border-gray-100 bg-gray-50">Categories</div>
-                    <button 
-                      onClick={() => addChip('All... (Managers, Employees, etc.)')}
-                      className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-700 transition-colors flex items-center justify-between group"
-                    >
-                      <span>All... (Managers, Employees, etc.)</span>
-                      <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />
-                    </button>
+                        <div className="px-4 py-2 mt-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-t border-gray-100 bg-gray-50">Categories</div>
+                        <button 
+                          onClick={() => addChip('All... (Managers, Employees, etc.)')}
+                          className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-700 transition-colors flex items-center justify-between group"
+                        >
+                          <span>All... (Managers, Employees, etc.)</span>
+                          <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />
+                        </button>
+                      </>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -544,10 +638,11 @@ export default function App() {
             <button 
               onClick={handleAddPeople}
               className={`px-6 py-2.5 font-medium rounded-lg transition-colors ${
-                selectedChips.length > 0 
+                (selectedChips.length > 0 || (viewMode === 'advanced2' && inputValue.trim() !== ''))
                 ? 'bg-[#7A005D] text-white hover:bg-[#60003D]' 
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
               }`}
+              disabled={selectedChips.length === 0 && (viewMode !== 'advanced2' || inputValue.trim() === '')}
             >
               Add
             </button>
@@ -651,78 +746,107 @@ export default function App() {
                           exit={{ opacity: 0, y: 10 }}
                           className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-[60]"
                         >
-                          <button 
-                            onClick={() => updateRole(person.id, 'Editor')}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors group"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-gray-900">Editor</span>
-                              {person.role === 'Editor' && <CheckCircle2 className="w-4 h-4 text-[#7A005D]" />}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                              Manage access, app navigation, add and remove pages in the app. Same as owner
-                            </p>
-                          </button>
-                          <button 
-                            onClick={() => updateRole(person.id, 'Collaborator')}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors group"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-gray-900">Collaborator</span>
-                              {person.role === 'Collaborator' && <CheckCircle2 className="w-4 h-4 text-[#7A005D]" />}
-                            </div>
-                          </button>
-                          <button 
-                            onClick={() => updateRole(person.id, 'Viewer')}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors group"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-gray-900">Viewer</span>
-                              {person.role === 'Viewer' && <CheckCircle2 className="w-4 h-4 text-[#7A005D]" />}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                              Access and search the app
-                            </p>
-                          </button>
-                          <div className="border-t border-gray-100 mt-2 pt-2">
-                            {viewMode === 'advanced2' && (
-                              <>
-                                <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-900 font-medium">
-                                  View as owner
-                                </button>
-                                <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-900 font-medium">
-                                  View as viewer
-                                </button>
-                                <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-900 font-medium">
-                                  Explore as owner
-                                </button>
-                              </>
-                            )}
-                            <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-900 font-medium">
-                              Add expiration
-                            </button>
-                            {viewMode === 'advanced2' && (
-                              <>
-                                <div className="border-t border-gray-100 my-2"></div>
+                          {viewMode === 'advanced2' ? (
+                            // Advanced 2 dropdown structure
+                            <>
+                              {/* Section 1: View/Explore options */}
+                              <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-900 font-medium">
+                                View as owner
+                              </button>
+                              <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-900 font-medium">
+                                View as viewer
+                              </button>
+                              <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-900 font-medium">
+                                Explore as owner
+                              </button>
+                              
+                              {/* Section 2: Transfer ownership and Add expiration */}
+                              <div className="border-t border-gray-100 my-2"></div>
+                              {person.role === 'Owner' && (
                                 <button 
                                   onClick={() => {
-                                    removePerson(person.id);
-                                    setActiveAccessDropdown(null);
+                                    if (!isOnlyOwner) {
+                                      setIsTransferModalOpen(true);
+                                      setActiveAccessDropdown(null);
+                                    }
                                   }}
-                                  className="w-full px-4 py-3 text-left hover:bg-red-50 text-sm text-red-600 font-medium transition-colors"
+                                  className={`w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-900 font-medium ${
+                                    isOnlyOwner ? 'opacity-50 cursor-not-allowed' : ''
+                                  }`}
                                 >
-                                  Remove
+                                  Transfer ownership
                                 </button>
-                              </>
-                            )}
-                          </div>
+                              )}
+                              <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-900 font-medium">
+                                Add expiration
+                              </button>
+                              
+                              {/* Section 3: Remove */}
+                              {person.role !== 'Owner' && (
+                                <>
+                                  <div className="border-t border-gray-100 my-2"></div>
+                                  <button 
+                                    onClick={() => {
+                                      removePerson(person.id);
+                                      setActiveAccessDropdown(null);
+                                    }}
+                                    className="w-full px-4 py-3 text-left hover:bg-red-50 text-sm text-red-600 font-medium transition-colors"
+                                  >
+                                    Remove
+                                  </button>
+                                </>
+                              )}
+                            </>
+                          ) : (
+                            // Default and Advanced dropdown structure
+                            <>
+                              <button 
+                                onClick={() => updateRole(person.id, 'Editor')}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors group"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium text-gray-900">Editor</span>
+                                  {person.role === 'Editor' && <CheckCircle2 className="w-4 h-4 text-[#7A005D]" />}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                                  Manage access, app navigation, add and remove pages in the app. Same as owner
+                                </p>
+                              </button>
+                              <button 
+                                onClick={() => updateRole(person.id, 'Collaborator')}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors group"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium text-gray-900">Collaborator</span>
+                                  {person.role === 'Collaborator' && <CheckCircle2 className="w-4 h-4 text-[#7A005D]" />}
+                                </div>
+                              </button>
+                              <button 
+                                onClick={() => updateRole(person.id, 'Viewer')}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors group"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium text-gray-900">Viewer</span>
+                                  {person.role === 'Viewer' && <CheckCircle2 className="w-4 h-4 text-[#7A005D]" />}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                                  Access and search the app
+                                </p>
+                              </button>
+                              <div className="border-t border-gray-100 mt-2 pt-2">
+                                <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-900 font-medium">
+                                  Add expiration
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </motion.div>
                       )}
                     </AnimatePresence>
                   </div>
 
                   <div className="flex items-center justify-center w-8 shrink-0">
-                    {person.role === 'Owner' && (
+                    {person.role === 'Owner' && viewMode !== 'advanced2' && (
                       <div className="relative group/swap-tooltip">
                         <button 
                           onClick={() => !isOnlyOwner && setIsTransferModalOpen(true)}
