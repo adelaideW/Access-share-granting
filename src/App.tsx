@@ -39,7 +39,7 @@ interface Person {
 
 export default function App() {
   const [emailNotification, setEmailNotification] = useState(false);
-  const [viewMode, setViewMode] = useState<'default' | 'advanced'>('advanced');
+  const [viewMode, setViewMode] = useState<'default' | 'advanced' | 'advanced2'>('advanced');
   const [isGeneralAccessOpen, setIsGeneralAccessOpen] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
@@ -308,7 +308,7 @@ export default function App() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const gridCols = viewMode === 'advanced' ? 'grid-cols-[1fr_120px_120px]' : 'grid-cols-[1fr_120px]';
+  const gridCols = viewMode === 'advanced' ? 'grid-cols-[1fr_120px_120px]' : viewMode === 'advanced2' ? 'grid-cols-[1fr_120px]' : 'grid-cols-[1fr_120px]';
 
   const handleCopyLink = () => {
     setShowSnackbar(true);
@@ -366,6 +366,16 @@ export default function App() {
           }`}
         >
           Advanced
+        </button>
+        <button 
+          onClick={() => setViewMode('advanced2')}
+          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            viewMode === 'advanced2' 
+            ? 'bg-[#7A005D] text-white shadow-md' 
+            : 'text-gray-500 hover:bg-gray-50'
+          }`}
+        >
+          Advanced 2
         </button>
       </div>
 
@@ -675,9 +685,36 @@ export default function App() {
                             </p>
                           </button>
                           <div className="border-t border-gray-100 mt-2 pt-2">
+                            {viewMode === 'advanced2' && (
+                              <>
+                                <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-900 font-medium">
+                                  View as owner
+                                </button>
+                                <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-900 font-medium">
+                                  View as viewer
+                                </button>
+                                <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-900 font-medium">
+                                  Explore as owner
+                                </button>
+                              </>
+                            )}
                             <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-900 font-medium">
                               Add expiration
                             </button>
+                            {viewMode === 'advanced2' && (
+                              <>
+                                <div className="border-t border-gray-100 my-2"></div>
+                                <button 
+                                  onClick={() => {
+                                    removePerson(person.id);
+                                    setActiveAccessDropdown(null);
+                                  }}
+                                  className="w-full px-4 py-3 text-left hover:bg-red-50 text-sm text-red-600 font-medium transition-colors"
+                                >
+                                  Remove
+                                </button>
+                              </>
+                            )}
                           </div>
                         </motion.div>
                       )}
@@ -705,7 +742,7 @@ export default function App() {
                         </div>
                       </div>
                     )}
-                    {person.role !== 'Owner' && (
+                    {person.role !== 'Owner' && viewMode !== 'advanced2' && (
                       <div className="relative group/delete-tooltip">
                         <button 
                           onClick={() => removePerson(person.id)}
@@ -726,7 +763,7 @@ export default function App() {
         </div>
 
         {/* General access Section */}
-        {viewMode === 'advanced' && (
+        {(viewMode === 'advanced' || viewMode === 'advanced2') && (
           <div className="px-6 py-4 border-t border-gray-100">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">General access</h2>
             <div className="border border-gray-200 rounded-2xl p-4">
@@ -778,7 +815,7 @@ export default function App() {
           </label>
           
           <div className="flex gap-3">
-            {viewMode === 'advanced' && (
+            {(viewMode === 'advanced' || viewMode === 'advanced2') && (
               <button 
                 onClick={handleCopyLink}
                 className="px-6 py-2.5 border border-gray-300 text-gray-600 font-semibold rounded-lg hover:bg-gray-50 transition-colors"
