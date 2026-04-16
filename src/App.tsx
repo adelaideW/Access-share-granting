@@ -37,6 +37,27 @@ interface Person {
   avatar?: string;
 }
 
+/** Demo emails derived from display names (no backend in this UI prototype). */
+function deriveEmailFromDisplayName(name: string): string {
+  const cleaned = name.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'user@company.com';
+  if (parts.length === 1) return `${parts[0]}@company.com`;
+  return `${parts[0]}.${parts[parts.length - 1]}@company.com`;
+}
+
+function emailsForPerson(p: Person): string[] {
+  return p.names.map(deriveEmailFromDisplayName);
+}
+
+function allAccessEmails(peopleList: Person[]): string[] {
+  const set = new Set<string>();
+  for (const p of peopleList) {
+    emailsForPerson(p).forEach((e) => set.add(e));
+  }
+  return Array.from(set);
+}
+
 export default function App() {
   const [emailNotification, setEmailNotification] = useState(false);
   const [viewMode, setViewMode] = useState<'default' | 'advanced' | 'advanced2'>('advanced2');
@@ -46,7 +67,18 @@ export default function App() {
   const [isBulkAddOpen, setIsBulkAddOpen] = useState(false);
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [showSnackbar, setShowSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+  const [isPreviewAccessOpen, setIsPreviewAccessOpen] = useState(false);
+  const snackbarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (message: string) => {
+    if (snackbarTimerRef.current) clearTimeout(snackbarTimerRef.current);
+    setSnackbarMessage(message);
+    snackbarTimerRef.current = setTimeout(() => {
+      setSnackbarMessage(null);
+      snackbarTimerRef.current = null;
+    }, 3000);
+  };
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [activeAccessDropdown, setActiveAccessDropdown] = useState<string | null>(null);
   const [transferTarget, setTransferTarget] = useState('');
@@ -227,8 +259,7 @@ export default function App() {
     setIsTransferModalOpen(false);
     setTransferSearch('');
     setSelectedTransferPerson(null);
-    setShowSnackbar(true);
-    setTimeout(() => setShowSnackbar(false), 3000);
+    showToast('Transfer complete');
   };
 
   const addChip = (chip: string) => {
@@ -342,33 +373,71 @@ export default function App() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (snackbarTimerRef.current) clearTimeout(snackbarTimerRef.current);
+    };
+  }, []);
+
   const gridCols = viewMode === 'advanced' ? 'grid-cols-[1fr_120px_120px]' : viewMode === 'advanced2' ? 'grid-cols-[1fr_120px]' : 'grid-cols-[1fr_120px]';
 
-  const handleCopyLink = () => {
-    setShowSnackbar(true);
-    setTimeout(() => setShowSnackbar(false), 3000);
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      showToast('Link copied');
+    } catch {
+      showToast('Could not copy link');
+    }
+  };
+
+  const handleCopyAllEmails = async () => {
+    const emails = allAccessEmails(people);
+    if (emails.length === 0) {
+      showToast('No email addresses to copy');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(emails.join('\n'));
+      showToast('Emails copied to clipboard');
+    } catch {
+      showToast('Could not copy emails');
+    }
+  };
+
+  const handleEmailAllWithAccess = () => {
+    const emails = allAccessEmails(people);
+    if (emails.length === 0) {
+      showToast('No email addresses');
+      return;
+    }
+    const subject = encodeURIComponent('Shared access');
+    window.location.href = `mailto:${emails.join(',')}?subject=${subject}`;
   };
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4 font-sans relative overflow-auto">
       {/* Snackbar */}
       <AnimatePresence>
-        {showSnackbar && (
+        {snackbarMessage && (
           <motion.div 
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] w-[360px] h-[56px] bg-[#C1E9DA] rounded-2xl shadow-lg flex items-center px-4 justify-between"
+            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] min-w-[280px] max-w-[420px] min-h-[56px] bg-[#C1E9DA] rounded-2xl shadow-lg flex items-center px-4 py-2 justify-between gap-2"
           >
-            <div className="flex items-center gap-3">
-              <div className="bg-[#0D6345] rounded-full p-0.5">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="bg-[#0D6345] rounded-full p-0.5 shrink-0">
                 <CheckCircle2 className="w-5 h-5 text-white" />
               </div>
-              <span className="text-[#003926] font-semibold text-lg">Link copied</span>
+              <span className="text-[#003926] font-semibold text-base leading-snug break-words">{snackbarMessage}</span>
             </div>
             <button 
-              onClick={() => setShowSnackbar(false)}
-              className="relative flex items-center justify-center"
+              type="button"
+              onClick={() => {
+                if (snackbarTimerRef.current) clearTimeout(snackbarTimerRef.current);
+                setSnackbarMessage(null);
+              }}
+              className="relative flex items-center justify-center shrink-0"
             >
               <div className="absolute inset-0 border-2 border-[#0D6345] rounded-full opacity-30"></div>
               <div className="bg-[#0D6345] rounded-full p-1">
@@ -647,19 +716,40 @@ export default function App() {
             <div className="flex items-center gap-4">
               {/* Copy icon now shows in both modes or specifically requested for default */}
               <div className="relative group/tooltip">
-                <button className="text-gray-600 hover:text-gray-900"><Copy className="w-5 h-5" /></button>
+                <button
+                  type="button"
+                  onClick={() => void handleCopyAllEmails()}
+                  aria-label="Copy emails for all with access"
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  <Copy className="w-5 h-5" />
+                </button>
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-100 text-gray-900 text-xs font-medium rounded-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all w-fit whitespace-nowrap shadow-lg border border-gray-200 z-50">
                   Copy emails for all with access
                 </div>
               </div>
               <div className="relative group/tooltip">
-                <button className="text-gray-600 hover:text-gray-900"><Mail className="w-5 h-5" /></button>
+                <button
+                  type="button"
+                  onClick={handleEmailAllWithAccess}
+                  aria-label="Email all with access"
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  <Mail className="w-5 h-5" />
+                </button>
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-100 text-gray-900 text-xs font-medium rounded-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all w-fit whitespace-nowrap shadow-lg border border-gray-200 z-50">
                   Email all with access
                 </div>
               </div>
               <div className="relative group/tooltip">
-                <button className="text-gray-600 hover:text-gray-900"><Eye className="w-5 h-5" /></button>
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewAccessOpen(true)}
+                  aria-label="Preview all with access"
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  <Eye className="w-5 h-5" />
+                </button>
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-100 text-gray-900 text-xs font-medium rounded-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all w-fit whitespace-nowrap shadow-lg border border-gray-200 z-50">
                   Preview all with access
                 </div>
@@ -1180,6 +1270,50 @@ export default function App() {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Preview all with access — list emails derived from names (demo) */}
+      <AnimatePresence>
+        {isPreviewAccessOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[190] bg-black/40 flex items-center justify-center p-4"
+            onClick={() => setIsPreviewAccessOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center shrink-0">
+                <h3 className="text-lg font-semibold text-gray-900">People with access</h3>
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewAccessOpen(false)}
+                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Close preview"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+              <div className="overflow-y-auto px-6 py-4 space-y-4">
+                {people.map((person) => (
+                  <div key={person.id} className="border-b border-gray-100 last:border-0 pb-4 last:pb-0">
+                    <div className="font-medium text-gray-900">{person.names.join(', ')}</div>
+                    <div className="text-sm text-gray-500">{person.role}</div>
+                    <div className="text-sm text-gray-700 mt-1 break-all">
+                      {emailsForPerson(person).join(', ')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
