@@ -223,24 +223,54 @@ function emailComposerBucket(role: AccessLevel): EmailComposerBucket {
 }
 
 type GeneralAccessScope = 'restricted' | 'company' | 'anyone_link';
-type LinkSharingRole = 'Viewer' | 'Collaborator' | 'Editor';
 
 function generalAccessSubtitle(
   scope: GeneralAccessScope,
-  linkRole: LinkSharingRole,
+  linkRole: AccessLevel,
   organizationName: string
 ): string {
   if (scope === 'restricted') {
     return 'Only people with access can open with this link.';
   }
+  const atCompany = `Anyone at ${organizationName}`;
   if (scope === 'company') {
-    if (linkRole === 'Viewer') return `Anyone at ${organizationName} can find and open with the link.`;
-    if (linkRole === 'Collaborator') return `Anyone at ${organizationName} with the link can collaborate.`;
-    return `Anyone at ${organizationName} with the link can edit.`;
+    switch (linkRole) {
+      case 'Owner':
+        return `${atCompany} with the link holds owner-level access to this resource.`;
+      case 'Editor':
+        return `${atCompany} with the link can edit.`;
+      case 'Collaborator':
+        return `${atCompany} with the link can collaborate.`;
+      case 'Viewer':
+        return `${atCompany} can find and open with the link.`;
+      case 'View as owner':
+        return `${atCompany} with the link opens in view mode as owner.`;
+      case 'View as viewer':
+        return `${atCompany} with the link opens in view mode as a viewer would.`;
+      case 'Explore as owner':
+        return `${atCompany} with the link can explore as owner.`;
+      default:
+        return `${atCompany} can find and open with the link.`;
+    }
   }
-  if (linkRole === 'Viewer') return 'Anyone on the internet with the link can view.';
-  if (linkRole === 'Collaborator') return 'Anyone on the internet with the link can collaborate.';
-  return 'Anyone on the internet with the link can edit.';
+  switch (linkRole) {
+    case 'Owner':
+      return 'Anyone on the internet with the link receives owner-like access.';
+    case 'Editor':
+      return 'Anyone on the internet with the link can edit.';
+    case 'Collaborator':
+      return 'Anyone on the internet with the link can collaborate.';
+    case 'Viewer':
+      return 'Anyone on the internet with the link can view.';
+    case 'View as owner':
+      return 'Anyone on the internet with the link views as owner.';
+    case 'View as viewer':
+      return 'Anyone on the internet with the link views as a viewer would.';
+    case 'Explore as owner':
+      return 'Anyone on the internet with the link can explore as owner.';
+    default:
+      return 'Anyone on the internet with the link can view.';
+  }
 }
 
 /** Demo emails derived from display names (no backend in this UI prototype). */
@@ -268,7 +298,10 @@ export default function App() {
   const [emailNotification, setEmailNotification] = useState(false);
   const [viewMode, setViewMode] = useState<'default' | 'advanced' | 'advanced2'>('advanced2');
   const [generalAccessScope, setGeneralAccessScope] = useState<GeneralAccessScope>('restricted');
-  const [generalLinkSharingRole, setGeneralLinkSharingRole] = useState<LinkSharingRole>('Viewer');
+  const [generalLinkAccessRole, setGeneralLinkAccessRole] =
+    useState<AccessLevel>('View as viewer');
+  const [generalLinkExpirationIso, setGeneralLinkExpirationIso] = useState<string | null>(null);
+  const [calendarGeneralLinkOpen, setCalendarGeneralLinkOpen] = useState(false);
   const [generalScopeDropdownOpen, setGeneralScopeDropdownOpen] = useState(false);
   const [generalRoleDropdownOpen, setGeneralRoleDropdownOpen] = useState(false);
   /** Label for the middle option (maps to product “{Company}” scope) */
@@ -315,6 +348,7 @@ export default function App() {
   const generalScopeDropdownRef = useRef<HTMLDivElement>(null);
   const generalRoleDropdownRef = useRef<HTMLDivElement>(null);
   const expirationCalendarPopoverRef = useRef<HTMLDivElement>(null);
+  const generalExpirationCalendarPopoverRef = useRef<HTMLDivElement>(null);
 
   const [calendarOpenPersonId, setCalendarOpenPersonId] = useState<string | null>(null);
 
@@ -326,6 +360,29 @@ export default function App() {
     const measureRef = useRef<HTMLDivElement>(null);
     const [visibleCount, setVisibleCount] = useState(1);
     const isOwner = role === 'Owner';
+
+    const pillIconStrip = (
+      <div className="flex w-[52px] shrink-0 items-center justify-end gap-0.5 pl-0.5">
+        <div className="flex gap-0.5 opacity-0 transition-opacity pointer-events-none group-hover/pill:pointer-events-auto group-hover/pill:opacity-100">
+          <button
+            type="button"
+            className="rounded p-0.5 text-gray-500 hover:bg-gray-200/80 hover:text-gray-800"
+            aria-label="Edit recipients for this group"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            className="rounded p-0.5 text-gray-500 hover:bg-gray-200/80 hover:text-gray-800"
+            aria-label="Preview as this group"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Eye className="h-3.5 w-3.5" strokeWidth={2} />
+          </button>
+        </div>
+      </div>
+    );
 
     useLayoutEffect(() => {
       if (isOwner || !measureRef.current || !containerRef.current) return;
@@ -378,6 +435,17 @@ export default function App() {
     const displayNames = isOwner ? names : names.slice(0, visibleCount);
     const remainingCount = isOwner ? 0 : names.length - visibleCount;
 
+    const measureTag = (name: string, idx: number) => (
+      <div
+        key={`m-${idx}`}
+        className="flex shrink-0 items-center gap-1.5 rounded-md border border-gray-200 bg-gray-100 py-1 pl-2 pr-1 text-sm"
+      >
+        <Users className="h-4 w-4 shrink-0 text-gray-400" />
+        <span className="max-w-none whitespace-nowrap text-gray-700">{name}</span>
+        <div className="flex w-[52px] shrink-0 justify-end" />
+      </div>
+    );
+
     return (
       <div className="relative group/tags-cell w-full flex items-center min-h-[30px]" ref={containerRef}>
         {/* Hidden measuring container */}
@@ -387,20 +455,23 @@ export default function App() {
             className="absolute opacity-0 pointer-events-none flex items-center gap-2 flex-nowrap whitespace-nowrap"
             aria-hidden="true"
           >
-            {names.map((name, idx) => (
-              <div key={idx} className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 rounded-md border border-gray-200 text-sm">
-                <Users className="w-4 h-4 shrink-0" />
-                <span>{name}</span>
-              </div>
-            ))}
+            {names.map((name, idx) => measureTag(name, idx))}
           </div>
         )}
 
         <div className="flex items-center gap-2 flex-nowrap overflow-hidden relative w-full">
           {displayNames.map((name, idx) => (
-            <div key={idx} className={`flex items-center gap-1.5 px-2 py-1 bg-gray-100 rounded-md border border-gray-200 min-w-0 ${!isOwner ? 'shrink-0' : ''}`}>
-              {!isOwner && <Users className="w-4 h-4 text-gray-400 shrink-0" />}
-              <span className={`text-sm text-gray-700 ${!isOwner ? 'truncate' : ''}`}>{name}</span>
+            <div
+              key={idx}
+              className={`group/pill relative flex min-w-0 items-center gap-1.5 rounded-md border border-gray-200 bg-gray-100 py-1 pl-2 pr-1 ${!isOwner ? 'shrink-0' : ''}`}
+            >
+              <Users className="h-4 w-4 shrink-0 text-gray-400" />
+              <span
+                className={`min-w-0 flex-1 text-sm text-gray-700 ${!isOwner ? 'truncate' : ''}`}
+              >
+                {name}
+              </span>
+              {pillIconStrip}
             </div>
           ))}
           {remainingCount > 0 && (
@@ -413,7 +484,7 @@ export default function App() {
         {/* Tooltip for all tags - only for non-owners when multiple names exist */}
         {!isOwner && names.length > 1 && (
           <>
-            <div className="absolute inset-0 z-10 cursor-help" />
+            <div className="pointer-events-none absolute inset-0 z-10 cursor-help" aria-hidden />
             <div className="absolute left-0 bottom-full mb-2 p-4 bg-[#111827] text-white rounded-2xl opacity-0 invisible group-hover/tags-cell:opacity-100 group-hover/tags-cell:visible transition-all z-50 w-80 shadow-2xl border border-white/10 pointer-events-none">
               <div className="font-bold text-sm mb-2">All people/groups:</div>
               <div className="h-[1px] bg-white/10 mb-3" />
@@ -599,6 +670,12 @@ export default function App() {
         !expirationCalendarPopoverRef.current.contains(event.target as Node)
       ) {
         setCalendarOpenPersonId(null);
+      }
+      if (
+        generalExpirationCalendarPopoverRef.current &&
+        !generalExpirationCalendarPopoverRef.current.contains(event.target as Node)
+      ) {
+        setCalendarGeneralLinkOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -1127,33 +1204,13 @@ export default function App() {
             <div className={`grid ${gridCols} px-4 py-3 bg-gray-50/50 border-b border-gray-200 text-sm font-medium text-gray-500`}>
               <div className="flex min-w-0 items-center gap-4">
                 <span className="shrink-0">People</span>
-                <div className="flex shrink-0 items-center gap-3 text-gray-500">
-                  <div className="relative group/col-pencil">
-                    <Pencil
-                      className="h-4 w-4 cursor-pointer text-gray-400 hover:text-gray-600"
-                      aria-hidden
-                    />
-                    <div className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all invisible group-hover/col-pencil:visible group-hover/col-pencil:opacity-100">
-                      Edit
-                    </div>
-                  </div>
-                  <div className="relative group/col-preview">
-                    <Eye
-                      className="h-4 w-4 cursor-pointer text-gray-400 hover:text-gray-600"
-                      aria-hidden
-                    />
-                    <div className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all invisible group-hover/col-preview:visible group-hover/col-preview:opacity-100">
-                      Preview
-                    </div>
-                  </div>
-                </div>
               </div>
               {viewMode === 'advanced' && (
                 <div className="flex items-center justify-center gap-1">
                   View as owner <HelpCircle className="w-3.5 h-3.5" />
                 </div>
               )}
-              <div className="flex w-full min-w-0 items-center justify-center gap-1 px-2 text-center">
+              <div className="flex w-full min-w-0 items-center justify-start gap-1 px-2 text-left">
                 Access <HelpCircle className="w-3.5 h-3.5 shrink-0" />
               </div>
             </div>
@@ -1179,10 +1236,10 @@ export default function App() {
                   </div>
                 )}
 
-                <div className="relative flex w-full min-w-0 items-start justify-center gap-2">
-                  <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                <div className="relative flex w-full min-w-0 items-start justify-start gap-2">
+                  <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
                     <div
-                      className="relative flex w-full justify-center"
+                      className="relative flex w-full justify-start"
                       ref={person.id === activeAccessDropdown ? accessDropdownRef : null}
                     >
                       <button 
@@ -1191,13 +1248,13 @@ export default function App() {
                           setActiveAccessDropdown(activeAccessDropdown === person.id ? null : person.id)
                         }
                         title={person.role}
-                        className={`flex max-w-[200px] cursor-pointer items-center gap-0.5 rounded border px-2 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-100 min-w-0 justify-center ${
+                        className={`flex max-w-[200px] cursor-pointer items-center gap-0.5 rounded border px-2 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-100 min-w-0 justify-start text-left ${
                           activeAccessDropdown === person.id
                             ? 'border-[#1a73e8] bg-blue-50/30 ring-1 ring-[#1a73e8]/20'
                             : 'border-transparent hover:border-gray-200'
                         }`}
                       >
-                        <span className="min-w-0 flex-1 truncate text-center">{person.role}</span>
+                        <span className="min-w-0 flex-1 truncate text-left">{person.role}</span>
                         <div className="flex h-4 w-4 shrink-0 items-center justify-center pl-0.5">
                           <ChevronDown className="h-4 w-4 text-gray-400" />
                         </div>
@@ -1210,7 +1267,7 @@ export default function App() {
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 10 }}
-                            className="absolute left-1/2 top-full z-[60] mt-2 w-72 -translate-x-1/2 rounded-xl border border-gray-200 bg-white py-2 shadow-2xl"
+                            className="absolute left-0 top-full z-[60] mt-2 w-72 rounded-xl border border-gray-200 bg-white py-2 shadow-2xl"
                           >
                               <button 
                                 type="button"
@@ -1329,7 +1386,7 @@ export default function App() {
                     </div>
 
                     {person.expirationDate && (
-                      <div className="relative flex max-w-full flex-wrap items-center justify-center gap-2 text-xs text-gray-500">
+                      <div className="relative flex max-w-full flex-wrap items-center justify-start gap-2 text-xs text-gray-500">
                         <span className="text-gray-500">Expires</span>
                         <button
                           type="button"
@@ -1356,7 +1413,7 @@ export default function App() {
                         {calendarOpenPersonId === person.id && (
                           <div
                             ref={expirationCalendarPopoverRef}
-                            className="absolute left-1/2 top-full z-[85] mt-2 -translate-x-1/2"
+                            className="absolute left-0 top-full z-[85] mt-2"
                           >
                             <ExpirationCalendarPopover
                               valueIso={person.expirationDate}
@@ -1457,10 +1514,51 @@ export default function App() {
                           <p className="text-[13px] text-[#5f6368] leading-snug mt-0.5">
                             {generalAccessSubtitle(
                               generalAccessScope,
-                              generalLinkSharingRole,
+                              generalLinkAccessRole,
                               organizationDisplayName
                             )}
                           </p>
+                          {(generalAccessScope === 'company' || generalAccessScope === 'anyone_link') &&
+                            generalLinkExpirationIso && (
+                              <div className="relative mt-1.5 flex flex-wrap items-center gap-2 text-[13px] text-[#5f6368]">
+                                <span>Expires</span>
+                                <button
+                                  type="button"
+                                  title={generalLinkExpirationIso}
+                                  onClick={() =>
+                                    setCalendarGeneralLinkOpen((o) => !o)
+                                  }
+                                  className="font-semibold text-[#7A005D] hover:underline"
+                                >
+                                  {formatExpirationDisplay(generalLinkExpirationIso)}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setGeneralLinkExpirationIso(null);
+                                    setCalendarGeneralLinkOpen(false);
+                                  }}
+                                  className="font-semibold text-[#7A005D] hover:underline"
+                                >
+                                  Remove
+                                </button>
+                                {calendarGeneralLinkOpen && (
+                                  <div
+                                    ref={generalExpirationCalendarPopoverRef}
+                                    className="absolute left-0 top-full z-[80] mt-2"
+                                  >
+                                    <ExpirationCalendarPopover
+                                      valueIso={generalLinkExpirationIso}
+                                      onSelect={(iso) => {
+                                        setGeneralLinkExpirationIso(iso);
+                                        setCalendarGeneralLinkOpen(false);
+                                      }}
+                                      onClose={() => setCalendarGeneralLinkOpen(false)}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
                         </div>
                         <ChevronDown className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
                       </div>
@@ -1513,10 +1611,10 @@ export default function App() {
                           setGeneralRoleDropdownOpen((o) => !o);
                           setGeneralScopeDropdownOpen(false);
                         }}
-                        className="inline-flex items-center gap-0.5 rounded-lg border border-[#1a73e8] bg-white pl-3 pr-2 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 min-h-[40px] transition-colors"
+                        className="inline-flex min-h-[40px] max-w-[min(220px,100%)] cursor-pointer items-center gap-0.5 rounded-lg border border-[#1a73e8] bg-white py-2 pl-3 pr-2 text-left text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50"
                       >
-                        <span>{generalLinkSharingRole}</span>
-                        <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />
+                        <span className="min-w-0 flex-1 truncate">{generalLinkAccessRole}</span>
+                        <ChevronDown className="h-4 w-4 shrink-0 text-gray-500" />
                       </button>
 
                       <AnimatePresence>
@@ -1525,27 +1623,141 @@ export default function App() {
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 10 }}
-                            className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-[70] overflow-hidden"
+                            className="absolute right-0 top-full z-[70] mt-2 w-72 overflow-hidden rounded-xl border border-gray-200 bg-white py-2 shadow-2xl"
                           >
-                            <div className="px-4 pb-1.5 pt-0.5 text-[11px] font-semibold text-[#5f6368] uppercase tracking-wide">
-                              Role
-                            </div>
-                            {(['Viewer', 'Collaborator', 'Editor'] as const).map((role) => (
                               <button
-                                key={role}
                                 type="button"
                                 onClick={() => {
-                                  setGeneralLinkSharingRole(role);
+                                  setGeneralLinkAccessRole('Owner');
                                   setGeneralRoleDropdownOpen(false);
                                 }}
-                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors flex items-center justify-between gap-2 text-sm font-medium text-gray-900"
+                                className="group w-full px-4 py-3 text-left transition-colors hover:bg-gray-50"
                               >
-                                <span>{role}</span>
-                                {generalLinkSharingRole === role && (
-                                  <CheckCircle2 className="w-4 h-4 text-[#7A005D] shrink-0" strokeWidth={2.5} />
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-sm font-medium text-gray-900">Owner</span>
+                                  {generalLinkAccessRole === 'Owner' && (
+                                    <CheckCircle2 className="h-4 w-4 shrink-0 text-[#7A005D]" />
+                                  )}
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setGeneralLinkAccessRole('Editor');
+                                  setGeneralRoleDropdownOpen(false);
+                                }}
+                                className="group w-full px-4 py-3 text-left transition-colors hover:bg-gray-50"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-sm font-medium text-gray-900">Editor</span>
+                                  {generalLinkAccessRole === 'Editor' && (
+                                    <CheckCircle2 className="h-4 w-4 shrink-0 text-[#7A005D]" />
+                                  )}
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setGeneralLinkAccessRole('Collaborator');
+                                  setGeneralRoleDropdownOpen(false);
+                                }}
+                                className="group w-full px-4 py-3 text-left transition-colors hover:bg-gray-50"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-sm font-medium text-gray-900">Collaborator</span>
+                                  {generalLinkAccessRole === 'Collaborator' && (
+                                    <CheckCircle2 className="h-4 w-4 shrink-0 text-[#7A005D]" />
+                                  )}
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setGeneralLinkAccessRole('View as owner');
+                                  setGeneralRoleDropdownOpen(false);
+                                }}
+                                className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
+                              >
+                                <span>View as owner</span>
+                                {generalLinkAccessRole === 'View as owner' && (
+                                  <CheckCircle2 className="h-4 w-4 shrink-0 text-[#7A005D]" />
                                 )}
                               </button>
-                            ))}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setGeneralLinkAccessRole('View as viewer');
+                                  setGeneralRoleDropdownOpen(false);
+                                }}
+                                className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
+                              >
+                                <span>View as viewer</span>
+                                {generalLinkAccessRole === 'View as viewer' && (
+                                  <CheckCircle2 className="h-4 w-4 shrink-0 text-[#7A005D]" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setGeneralLinkAccessRole('Explore as owner');
+                                  setGeneralRoleDropdownOpen(false);
+                                }}
+                                className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
+                              >
+                                <span>Explore as owner</span>
+                                {generalLinkAccessRole === 'Explore as owner' && (
+                                  <CheckCircle2 className="h-4 w-4 shrink-0 text-[#7A005D]" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setGeneralLinkAccessRole('Viewer');
+                                  setGeneralRoleDropdownOpen(false);
+                                }}
+                                className="group w-full px-4 py-3 text-left transition-colors hover:bg-gray-50"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-sm font-medium text-gray-900">Viewer</span>
+                                  {generalLinkAccessRole === 'Viewer' && (
+                                    <CheckCircle2 className="h-4 w-4 shrink-0 text-[#7A005D]" />
+                                  )}
+                                </div>
+                              </button>
+
+                              <div className="my-2 border-t border-gray-100" />
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (generalLinkExpirationIso) {
+                                    setGeneralLinkExpirationIso(null);
+                                    setCalendarGeneralLinkOpen(false);
+                                  } else {
+                                    setGeneralLinkExpirationIso(toIsoDate(addMonths(new Date(), 1)));
+                                  }
+                                  setGeneralRoleDropdownOpen(false);
+                                }}
+                                className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
+                              >
+                                {generalLinkExpirationIso ? 'Remove expiration' : 'Add expiration'}
+                              </button>
+
+                              <div className="my-2 border-t border-gray-100" />
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setGeneralAccessScope('restricted');
+                                  setGeneralLinkAccessRole('View as viewer');
+                                  setGeneralLinkExpirationIso(null);
+                                  setCalendarGeneralLinkOpen(false);
+                                  setGeneralRoleDropdownOpen(false);
+                                }}
+                                className="w-full px-4 py-3 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+                              >
+                                Remove
+                              </button>
                           </motion.div>
                         )}
                       </AnimatePresence>
