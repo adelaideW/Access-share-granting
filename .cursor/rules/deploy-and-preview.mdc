@@ -1,0 +1,18 @@
+---
+description: After implementing changes in this repo, deploy to Vercel and share preview URLs in the chat reply.
+globs: "**/*"
+alwaysApply: true
+---
+
+# Deploy and preview link after changes
+
+When you finish **implementing a code/config change** the user asked for in **this repository**:
+
+1. Complete **commit** and **push** to `main` when applicable (follow workspace commit rules).
+2. From this project directory run **`npm run deploy`** (or `npx vercel deploy --yes`) so Vercel builds and publishes a **preview deployment**.
+3. In your reply to the user, include:
+   - **Preview:** the `https://*.vercel.app` URL printed by the CLI (unique per deployment).
+   - **Inspect:** the `https://vercel.com/...` inspector URL when shown.
+   - Optionally mention **Production:** after `npm run deploy:prod`, or the stable production hostname when known.
+
+If deploy fails (CLI missing, auth, or network), say so clearly and give the exact commands for the user to run locally (`npx vercel login`, then `npm run deploy`).
