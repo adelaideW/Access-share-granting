@@ -7,8 +7,8 @@
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "vercel deploy --yes",
-    "deploy:prod": "vercel deploy --yes --prod",
+    "deploy": "npx vercel deploy --yes",
+    "deploy:prod": "npx vercel deploy --yes --prod",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
