@@ -14,6 +14,9 @@ import {
   Pencil, 
   Lock, 
   ChevronDown, 
+  Globe,
+  Building2,
+  Check,
   ArrowLeftRight,
   HelpCircle,
   Settings,
@@ -92,6 +95,27 @@ const ACCESS_GROUPS_ORDER: AccessLevel[] = [
   'Explore as owner',
 ];
 
+type GeneralAccessScope = 'restricted' | 'company' | 'anyone_link';
+type LinkSharingRole = 'Viewer' | 'Collaborator' | 'Editor';
+
+function generalAccessSubtitle(
+  scope: GeneralAccessScope,
+  linkRole: LinkSharingRole,
+  organizationName: string
+): string {
+  if (scope === 'restricted') {
+    return 'Only people with access can open with this link.';
+  }
+  if (scope === 'company') {
+    if (linkRole === 'Viewer') return `Anyone at ${organizationName} can find and open with the link.`;
+    if (linkRole === 'Collaborator') return `Anyone at ${organizationName} with the link can collaborate.`;
+    return `Anyone at ${organizationName} with the link can edit.`;
+  }
+  if (linkRole === 'Viewer') return 'Anyone on the internet with the link can view.';
+  if (linkRole === 'Collaborator') return 'Anyone on the internet with the link can collaborate.';
+  return 'Anyone on the internet with the link can edit.';
+}
+
 /** Demo emails derived from display names (no backend in this UI prototype). */
 function deriveEmailFromDisplayName(name: string): string {
   const cleaned = name.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
@@ -116,7 +140,12 @@ function allAccessEmails(peopleList: Person[]): string[] {
 export default function App() {
   const [emailNotification, setEmailNotification] = useState(false);
   const [viewMode, setViewMode] = useState<'default' | 'advanced' | 'advanced2'>('advanced2');
-  const [isGeneralAccessOpen, setIsGeneralAccessOpen] = useState(false);
+  const [generalAccessScope, setGeneralAccessScope] = useState<GeneralAccessScope>('restricted');
+  const [generalLinkSharingRole, setGeneralLinkSharingRole] = useState<LinkSharingRole>('Viewer');
+  const [generalScopeDropdownOpen, setGeneralScopeDropdownOpen] = useState(false);
+  const [generalRoleDropdownOpen, setGeneralRoleDropdownOpen] = useState(false);
+  /** Label for the middle option (maps to product “{Company}” scope) */
+  const organizationDisplayName = 'Acme Corp';
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isBulkAddOpen, setIsBulkAddOpen] = useState(false);
@@ -156,6 +185,8 @@ export default function App() {
   const inputRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const accessDropdownRef = useRef<HTMLDivElement>(null);
+  const generalScopeDropdownRef = useRef<HTMLDivElement>(null);
+  const generalRoleDropdownRef = useRef<HTMLDivElement>(null);
 
   const isOnlyOwner = people.length === 1 && people[0].role === 'Owner';
 
@@ -272,50 +303,37 @@ export default function App() {
 
   const handleConfirmTransfer = () => {
     if (!selectedTransferPerson) return;
-    
-    setPeople(prev => {
-      const newPeople = [...prev];
-      const currentOwnerIndex = newPeople.findIndex(p => p.role === 'Owner');
-      
-      // Find target in current people or available people
-      let targetPerson = newPeople.find(p => p.names[0] === selectedTransferPerson);
-      let targetInPrev = true;
-      
-      if (!targetPerson) {
-        targetPerson = availablePeople.find(p => p.names[0] === selectedTransferPerson);
-        targetInPrev = false;
-      }
-      
-      if (currentOwnerIndex !== -1 && targetPerson) {
-        // Current owner becomes Editor
-        const oldOwner = { ...newPeople[currentOwnerIndex], role: 'Editor' as AccessLevel };
-        // Target becomes Owner
-        const newOwner = { ...targetPerson, role: 'Owner' as AccessLevel };
-        
-        let updatedPeopleList: Person[];
-        if (targetInPrev) {
-          // Remove target from its old position
-          const filtered = newPeople.filter(p => p.names[0] !== selectedTransferPerson);
-          // Update old owner in the list
-          updatedPeopleList = filtered.map(p => p.id === oldOwner.id ? oldOwner : p);
-        } else {
-          // Update old owner in the list
-          updatedPeopleList = newPeople.map(p => p.id === oldOwner.id ? oldOwner : p);
-        }
-        
-        // Ensure new owner is in checkedRows
-        setCheckedRows(prevChecked => {
-          const next = new Set(prevChecked);
-          next.add(newOwner.id);
-          return next;
-        });
 
-        // Put new owner at the top
-        return [newOwner, ...updatedPeopleList];
-      }
-      return prev;
+    setPeople((prev) => {
+      const ownerIdx = prev.findIndex((p) => p.role === 'Owner');
+      if (ownerIdx === -1) return prev;
+
+      const targetPerson =
+        prev.find((p) => p.names[0] === selectedTransferPerson) ??
+        availablePeople.find((p) => p.names[0] === selectedTransferPerson);
+
+      if (!targetPerson || targetPerson.role === 'Owner') return prev;
+
+      const oldOwner = prev[ownerIdx];
+      const oldOwnerAsEditor: Person = { ...oldOwner, role: 'Editor' };
+      const newOwnerRow: Person = { ...targetPerson, role: 'Owner' };
+
+      const others = prev.filter(
+        (p) => p.id !== oldOwner.id && p.id !== targetPerson.id
+      );
+
+      return [newOwnerRow, oldOwnerAsEditor, ...others];
     });
-    
+
+    setCheckedRows((prev) => {
+      const next = new Set(prev);
+      const t =
+        people.find((p) => p.names[0] === selectedTransferPerson) ??
+        availablePeople.find((p) => p.names[0] === selectedTransferPerson);
+      if (t) next.add(t.id);
+      return next;
+    });
+
     setIsTransferModalOpen(false);
     setTransferSearch('');
     setSelectedTransferPerson(null);
@@ -441,6 +459,18 @@ export default function App() {
       }
       if (transferSearchRef.current && !transferSearchRef.current.contains(event.target as Node)) {
         setIsTransferSearchOpen(false);
+      }
+      if (
+        generalScopeDropdownRef.current &&
+        !generalScopeDropdownRef.current.contains(event.target as Node)
+      ) {
+        setGeneralScopeDropdownOpen(false);
+      }
+      if (
+        generalRoleDropdownRef.current &&
+        !generalRoleDropdownRef.current.contains(event.target as Node)
+      ) {
+        setGeneralRoleDropdownOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -1087,7 +1117,7 @@ export default function App() {
                               </button>
 
                               <div className="border-t border-gray-100 my-2"></div>
-                              {!person.isGroup && (
+                              {person.role === 'Owner' && !person.isGroup && (
                                 <button 
                                   type="button"
                                   onClick={() => {
@@ -1205,42 +1235,159 @@ export default function App() {
           </div>
         </div>
 
-        {/* General access Section */}
+        {/* General access — Google Drive–style scope + optional link role */}
         {(viewMode === 'advanced' || viewMode === 'advanced2') && (
           <div className="px-6 py-4 border-t border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">General access</h2>
-            <div className="border border-gray-200 rounded-2xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <button 
-                    onClick={() => setIsGeneralAccessOpen(!isGeneralAccessOpen)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                      isGeneralAccessOpen ? 'bg-[#7A005D]' : 'bg-gray-200'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        isGeneralAccessOpen ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                  <span className="font-semibold text-gray-900 text-lg">
-                    {isGeneralAccessOpen ? 'Open' : 'Restricted'}
-                  </span>
+            <h2 className="text-base font-semibold text-gray-900 mb-3">General access</h2>
+            <div
+              ref={generalScopeDropdownRef}
+              className="border border-gray-200 rounded-xl bg-[#f8f9fa] overflow-visible"
+            >
+              <div className="flex items-stretch gap-3 p-3 min-w-0">
+                <div
+                  className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center ${
+                    generalAccessScope === 'restricted'
+                      ? 'bg-[#e8eaed]'
+                      : generalAccessScope === 'company'
+                        ? 'bg-indigo-100'
+                        : 'bg-[#1a7f37]'
+                  }`}
+                >
+                  {generalAccessScope === 'restricted' && (
+                    <Lock className="w-[18px] h-[18px] text-[#5f6368]" strokeWidth={2.2} />
+                  )}
+                  {generalAccessScope === 'company' && (
+                    <Building2 className="w-[18px] h-[18px] text-indigo-700" strokeWidth={2} />
+                  )}
+                  {generalAccessScope === 'anyone_link' && (
+                    <Globe className="w-[18px] h-[18px] text-white" strokeWidth={2.2} />
+                  )}
                 </div>
-                
-                <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                  isGeneralAccessOpen 
-                  ? 'bg-purple-50 text-[#7A005D]' 
-                  : 'bg-gray-100 text-gray-900'
-                }`}>
-                  {isGeneralAccessOpen ? <Eye className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-                  {isGeneralAccessOpen ? 'Usable by anyone in your org' : 'Usage limited to those with access'}
+                <div className="flex-1 flex items-center gap-2 min-w-0">
+                  <div className="flex-1 min-w-0 relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGeneralScopeDropdownOpen((o) => !o);
+                        setGeneralRoleDropdownOpen(false);
+                      }}
+                      className="w-full text-left rounded-lg px-0 py-0.5 hover:opacity-90 transition-opacity"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-[15px] font-medium text-gray-900 leading-tight">
+                            {generalAccessScope === 'restricted' && 'Restricted'}
+                            {generalAccessScope === 'company' && organizationDisplayName}
+                            {generalAccessScope === 'anyone_link' && 'Anyone with the link'}
+                          </div>
+                          <p className="text-[13px] text-[#5f6368] leading-snug mt-0.5">
+                            {generalAccessSubtitle(
+                              generalAccessScope,
+                              generalLinkSharingRole,
+                              organizationDisplayName
+                            )}
+                          </p>
+                        </div>
+                        <ChevronDown className="w-4 h-4 text-gray-500 shrink-0 mt-1" />
+                      </div>
+                    </button>
+
+                    <AnimatePresence>
+                      {generalScopeDropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 4 }}
+                          className="absolute left-0 right-0 top-full mt-1.5 z-[70] bg-white rounded-lg border border-gray-200 shadow-lg py-1 overflow-hidden"
+                        >
+                          {(
+                            [
+                              { key: 'restricted' as const, listLabel: 'Restricted' },
+                              { key: 'company' as const, listLabel: '{Company}' },
+                              { key: 'anyone_link' as const, listLabel: 'Anyone with the link' },
+                            ] as const
+                          ).map((opt) => (
+                            <button
+                              key={opt.key}
+                              type="button"
+                              onClick={() => {
+                                setGeneralAccessScope(opt.key);
+                                setGeneralScopeDropdownOpen(false);
+                              }}
+                              className="w-full px-4 py-2.5 flex items-start gap-3 text-left hover:bg-gray-50"
+                            >
+                              <span className="mt-0.5 w-5 shrink-0 flex justify-center">
+                                {generalAccessScope === opt.key ? (
+                                  <Check className="w-5 h-5 text-[#1a73e8]" strokeWidth={2.5} />
+                                ) : (
+                                  <span className="w-5 h-5 block" />
+                                )}
+                              </span>
+                              <span className="flex flex-col gap-0.5">
+                                <span className="text-[14px] text-gray-900">{opt.listLabel}</span>
+                                {opt.key === 'company' && (
+                                  <span className="text-[12px] text-[#5f6368]">{organizationDisplayName}</span>
+                                )}
+                              </span>
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {(generalAccessScope === 'company' || generalAccessScope === 'anyone_link') && (
+                    <div ref={generalRoleDropdownRef} className="relative shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGeneralRoleDropdownOpen((o) => !o);
+                          setGeneralScopeDropdownOpen(false);
+                        }}
+                        className="flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 min-h-[40px]"
+                      >
+                        <span>{generalLinkSharingRole}</span>
+                        <ChevronDown className="w-4 h-4 text-gray-500" />
+                      </button>
+
+                      <AnimatePresence>
+                        {generalRoleDropdownOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 4 }}
+                            className="absolute right-0 top-full mt-1.5 z-[70] w-[220px] bg-white rounded-lg border border-gray-200 shadow-lg py-2 overflow-hidden"
+                          >
+                            <div className="px-4 pb-2 pt-1 text-[11px] font-semibold text-[#5f6368] uppercase tracking-wide">
+                              Role
+                            </div>
+                            {(['Viewer', 'Collaborator', 'Editor'] as const).map((role) => (
+                              <button
+                                key={role}
+                                type="button"
+                                onClick={() => {
+                                  setGeneralLinkSharingRole(role);
+                                  setGeneralRoleDropdownOpen(false);
+                                }}
+                                className="w-full px-4 py-2 flex items-center gap-3 text-left text-[14px] hover:bg-gray-50 text-gray-900"
+                              >
+                                <span className="w-5 shrink-0 flex justify-center">
+                                  {generalLinkSharingRole === role ? (
+                                    <Check className="w-5 h-5 text-[#1a73e8]" strokeWidth={2.5} />
+                                  ) : (
+                                    <span className="w-5 h-5 block" />
+                                  )}
+                                </span>
+                                {role}
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
                 </div>
               </div>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                When enabled, anyone in your organization can add this Saved Supergroup to any group they can edit but can't make changes
-              </p>
             </div>
           </div>
         )}
