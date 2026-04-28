@@ -21,7 +21,22 @@ import {
   ChevronRight,
   CheckCircle2,
   Trash2,
-  ChevronLeft
+  ChevronLeft,
+  Undo2,
+  Redo2,
+  Bold,
+  Italic,
+  Ellipsis,
+  Type,
+  Highlighter,
+  Ban,
+  AlignLeft,
+  List,
+  ListOrdered,
+  ListChecks,
+  Link2,
+  Image,
+  CirclePlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -327,9 +342,8 @@ export default function App() {
   const [emailComposerTab, setEmailComposerTab] = useState<'edit' | 'preview'>('edit');
   const [emailSubject, setEmailSubject] = useState('Harry Porter shared document with you');
   const [emailCustomMessage, setEmailCustomMessage] = useState('');
-  const [emailVariableChips, setEmailVariableChips] = useState<EmailVariableChip[]>([
-    { id: 'default-access-type', option: 'Access type', label: 'Access type' },
-  ]);
+  const [emailBodyHasWord, setEmailBodyHasWord] = useState(true);
+  const [emailBodyHtml, setEmailBodyHtml] = useState('');
   const [isVariableMenuOpen, setIsVariableMenuOpen] = useState(false);
   
   const [people, setPeople] = useState<Person[]>([
@@ -345,6 +359,8 @@ export default function App() {
   const expirationCalendarPopoverRef = useRef<HTMLDivElement>(null);
   const generalExpirationCalendarPopoverRef = useRef<HTMLDivElement>(null);
   const variableMenuRef = useRef<HTMLDivElement>(null);
+  const bodyEditorRef = useRef<HTMLDivElement>(null);
+  const draggedChipRef = useRef<HTMLElement | null>(null);
 
   const [calendarOpenPersonId, setCalendarOpenPersonId] = useState<string | null>(null);
 
@@ -654,6 +670,16 @@ export default function App() {
     setEmailRecipientIds((prev) => new Set([...prev].filter((id) => valid.has(id))));
   }, [people]);
 
+  useEffect(() => {
+    const editor = bodyEditorRef.current;
+    if (!isEmailComposerOpen || !editor) return;
+    if (editor.childNodes.length > 0) return;
+    editor.innerHTML = '';
+    editor.append(document.createTextNode(emailCustomMessage));
+    editor.appendChild(buildVariableChipElement('Access type'));
+    refreshBodyWordState();
+  }, [isEmailComposerOpen]);
+
   const gridCols =
     viewMode === 'advanced'
       ? 'grid-cols-[1fr_120px_minmax(200px,200px)]'
@@ -695,7 +721,8 @@ export default function App() {
     const ownerName = people.find((p) => p.role === 'Owner')?.names[0] ?? 'Harry Porter';
     setEmailSubject(`${ownerName} shared document with you`);
     setEmailCustomMessage(`${ownerName} shared ${sharedFilename} with you, you can now `);
-    setEmailVariableChips([{ id: 'default-access-type', option: 'Access type', label: 'Access type' }]);
+    setEmailBodyHtml('');
+    setEmailBodyHasWord(true);
     setIsEmailComposerOpen(true);
   };
 
@@ -709,7 +736,7 @@ export default function App() {
     return `${ownerName} shared ${sharedFilename} with you, you can now `;
   };
 
-  const insertVariableChip = (option: EmailVariableOption) => {
+  const buildVariableChipElement = (option: EmailVariableOption): HTMLSpanElement => {
     const ownerName = people.find((p) => p.role === 'Owner')?.names[0] ?? 'Harry Porter';
     const labelMap: Record<EmailVariableOption, string> = {
       Recipient: 'Recipient',
@@ -718,12 +745,63 @@ export default function App() {
       'File type': 'document',
       'Access type': 'Access type',
     };
-    const nextChip: EmailVariableChip = {
-      id: `${option}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      option,
-      label: labelMap[option],
-    };
-    setEmailVariableChips((prev) => [...prev, nextChip]);
+
+    const wrapper = document.createElement('span');
+    wrapper.className =
+      'inline-flex items-center overflow-hidden rounded-md border border-gray-400 align-middle bg-white mx-1';
+    wrapper.setAttribute('contenteditable', 'false');
+    wrapper.setAttribute('draggable', 'true');
+    wrapper.dataset.chip = option;
+
+    const left = document.createElement('span');
+    left.className = 'px-1.5 py-0.5 text-[12px] text-gray-700';
+    left.textContent = '[x]';
+
+    const middle = document.createElement('span');
+    middle.className = 'border-l border-r border-gray-300 px-2 py-0.5 text-[12px] text-gray-900';
+    middle.textContent = labelMap[option];
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'px-1.5 py-0.5 text-[16px] leading-none text-gray-700 hover:text-red-600';
+    remove.textContent = '×';
+    remove.dataset.removeChip = 'true';
+
+    wrapper.append(left, middle, remove);
+    return wrapper;
+  };
+
+  const getTypedBodyText = () => {
+    const editor = bodyEditorRef.current;
+    if (!editor) return '';
+    const clone = editor.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('[data-chip]').forEach((n) => n.remove());
+    return (clone.textContent ?? '').replace(/\s+/g, ' ').trim();
+  };
+
+  const refreshBodyWordState = () => {
+    const typed = getTypedBodyText();
+    setEmailBodyHasWord(/\b\w+\b/.test(typed));
+    setEmailBodyHtml(bodyEditorRef.current?.innerHTML ?? '');
+  };
+
+  const insertVariableChip = (option: EmailVariableOption) => {
+    const editor = bodyEditorRef.current;
+    if (!editor) return;
+    const chip = buildVariableChipElement(option);
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || !editor.contains(sel.anchorNode)) {
+      editor.appendChild(chip);
+    } else {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(chip);
+      range.setStartAfter(chip);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    refreshBodyWordState();
     setIsVariableMenuOpen(false);
   };
 
@@ -906,7 +984,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setEmailComposerTab('edit')}
-                    className={`h-full rounded-md px-1 text-sm font-normal transition-colors ${
+                    className={`h-full rounded-md px-2 text-sm font-normal transition-colors ${
                       emailComposerTab === 'edit'
                         ? 'bg-[#8b0069] text-white'
                         : 'text-gray-800 hover:bg-gray-50'
@@ -917,7 +995,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setEmailComposerTab('preview')}
-                    className={`h-full rounded-md px-1 text-sm font-normal transition-colors ${
+                    className={`h-full rounded-md px-2 text-sm font-normal transition-colors ${
                       emailComposerTab === 'preview'
                         ? 'bg-[#8b0069] text-white'
                         : 'text-gray-800 hover:bg-gray-50'
@@ -946,18 +1024,18 @@ export default function App() {
                     Body<span className="text-red-500">*</span>
                   </label>
                   <div className="rounded-lg border border-gray-300 overflow-hidden">
-                  <div className="space-y-2 border-b border-gray-300 px-4 py-2.5 text-base text-gray-700">
+                  <div className="border-b border-gray-300 px-4 py-2.5 text-base text-gray-700">
                     <div className="flex flex-wrap items-center gap-2">
-                    <button type="button" className="hover:text-gray-900">↩</button>
-                    <button type="button" className="hover:text-gray-900">↪</button>
+                    <button type="button" className="hover:text-gray-900"><Undo2 className="w-5 h-5" /></button>
+                    <button type="button" className="hover:text-gray-900"><Redo2 className="w-5 h-5" /></button>
                     <span className="text-gray-300">|</span>
-                    <button type="button" className="font-semibold hover:text-gray-900">B</button>
-                    <button type="button" className="italic hover:text-gray-900">/</button>
-                    <button type="button" className="hover:text-gray-900">⋯</button>
+                    <button type="button" className="hover:text-gray-900"><Bold className="w-5 h-5" /></button>
+                    <button type="button" className="hover:text-gray-900"><Italic className="w-5 h-5" /></button>
+                    <button type="button" className="hover:text-gray-900"><Ellipsis className="w-5 h-5" /></button>
                     <span className="text-gray-300">|</span>
-                    <button type="button" className="hover:text-gray-900">A</button>
-                    <button type="button" className="hover:text-gray-900">🖍</button>
-                    <button type="button" className="hover:text-gray-900">⊘</button>
+                    <button type="button" className="hover:text-gray-900"><Type className="w-5 h-5" /></button>
+                    <button type="button" className="hover:text-gray-900"><Highlighter className="w-5 h-5" /></button>
+                    <button type="button" className="hover:text-gray-900"><Ban className="w-5 h-5" /></button>
                     <span className="text-gray-300">|</span>
                     <button type="button" className="text-sm px-3 py-1 rounded-lg border border-gray-300 bg-white">Normal text</button>
                     <span className="text-gray-300">|</span>
@@ -965,16 +1043,14 @@ export default function App() {
                     <button type="button" className="text-sm px-2 py-1 rounded-lg border border-gray-300 bg-white">15</button>
                     <button type="button" className="hover:text-gray-900">+</button>
                     <span className="text-gray-300">|</span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                    <button type="button" className="hover:text-gray-900">☰</button>
-                    <button type="button" className="hover:text-gray-900">☷</button>
-                    <button type="button" className="hover:text-gray-900">≡</button>
-                    <button type="button" className="hover:text-gray-900">✓</button>
+                    <button type="button" className="hover:text-gray-900"><AlignLeft className="w-5 h-5" /></button>
+                    <button type="button" className="hover:text-gray-900"><List className="w-5 h-5" /></button>
+                    <button type="button" className="hover:text-gray-900"><ListOrdered className="w-5 h-5" /></button>
+                    <button type="button" className="hover:text-gray-900"><ListChecks className="w-5 h-5" /></button>
                     <span className="text-gray-300">|</span>
-                    <button type="button" className="hover:text-gray-900">🔗</button>
-                    <button type="button" className="hover:text-gray-900">🖼</button>
-                    <button type="button" className="hover:text-gray-900">⊕</button>
+                    <button type="button" className="hover:text-gray-900"><Link2 className="w-5 h-5" /></button>
+                    <button type="button" className="hover:text-gray-900"><Image className="w-5 h-5" /></button>
+                    <button type="button" className="hover:text-gray-900"><CirclePlus className="w-5 h-5" /></button>
                     <div className="relative ml-auto" ref={variableMenuRef}>
                       <button
                         type="button"
@@ -1011,49 +1087,60 @@ export default function App() {
                   <div className="h-[160px] min-h-[160px] resize-y overflow-auto p-4 text-sm text-gray-800">
                     {emailComposerTab === 'preview' ? (
                       <div className="leading-relaxed">
-                        <span>{emailCustomMessage}</span>
-                        {emailVariableChips.map((chip) => (
-                          <span key={chip.id} className="ml-2 inline-flex items-center overflow-hidden rounded-md border border-gray-400 align-middle bg-white">
-                            <span className="px-1.5 py-0.5 text-[12px] text-gray-700">[x]</span>
-                            <span className="border-l border-r border-gray-300 px-2 py-0.5 text-[12px] text-gray-900">{chip.label}</span>
-                            <span className="px-1.5 py-0.5 text-[16px] leading-none text-gray-700">×</span>
-                          </span>
-                        ))}
+                        <div dangerouslySetInnerHTML={{ __html: emailBodyHtml }} />
                       </div>
                     ) : (
-                      <div className="space-y-2">
-                        <textarea
-                          value={emailCustomMessage}
-                          onChange={(e) => setEmailCustomMessage(e.target.value)}
-                          onBlur={() => {
-                            if (emailCustomMessage.trim() === '' && emailVariableChips.length === 0) {
-                              setEmailCustomMessage(defaultEmailBody());
-                              setEmailVariableChips([
-                                { id: 'default-access-type', option: 'Access type', label: 'Access type' },
-                              ]);
-                            }
-                          }}
-                          rows={3}
-                          className="w-full resize-y bg-transparent leading-relaxed text-gray-800 outline-none"
-                        />
-                        <div className="flex flex-wrap gap-2">
-                          {emailVariableChips.map((chip) => (
-                            <span key={chip.id} className="inline-flex items-center overflow-hidden rounded-md border border-gray-400 bg-white">
-                              <span className="px-1.5 py-0.5 text-[12px] text-gray-700">[x]</span>
-                              <span className="border-l border-r border-gray-300 px-2 py-0.5 text-[12px] text-gray-900">{chip.label}</span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setEmailVariableChips((prev) => prev.filter((c) => c.id !== chip.id))
-                                }
-                                className="px-1.5 py-0.5 text-[16px] leading-none text-gray-700 hover:text-red-600"
-                              >
-                                ×
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      </div>
+                      <div
+                        ref={bodyEditorRef}
+                        contentEditable
+                        suppressContentEditableWarning
+                        className="min-h-[120px] w-full outline-none leading-relaxed"
+                        onInput={() => refreshBodyWordState()}
+                        onBlur={() => refreshBodyWordState()}
+                        onClick={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.dataset.removeChip === 'true') {
+                            e.preventDefault();
+                            target.closest('[data-chip]')?.remove();
+                            refreshBodyWordState();
+                          }
+                        }}
+                        onDragStart={(e) => {
+                          const target = (e.target as HTMLElement).closest('[data-chip]') as HTMLElement | null;
+                          if (!target) return;
+                          draggedChipRef.current = target;
+                          e.dataTransfer.setData('text/plain', target.dataset.chip ?? '');
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const editor = bodyEditorRef.current;
+                          if (!editor) return;
+                          const doc = editor.ownerDocument;
+                          const range =
+                            (doc as any).caretRangeFromPoint?.(e.clientX, e.clientY) ??
+                            (() => {
+                              const pos = (doc as any).caretPositionFromPoint?.(e.clientX, e.clientY);
+                              if (!pos) return null;
+                              const r = doc.createRange();
+                              r.setStart(pos.offsetNode, pos.offset);
+                              r.collapse(true);
+                              return r;
+                            })();
+                          if (!range) return;
+                          const chip = draggedChipRef.current;
+                          if (chip) {
+                            range.insertNode(chip);
+                            range.setStartAfter(chip);
+                            range.collapse(true);
+                            const sel = window.getSelection();
+                            sel?.removeAllRanges();
+                            sel?.addRange(range);
+                          }
+                          draggedChipRef.current = null;
+                          refreshBodyWordState();
+                        }}
+                        onDragOver={(e) => e.preventDefault()}
+                      />
                     )}
                   </div>
                 </div>
@@ -1070,10 +1157,10 @@ export default function App() {
               </button>
               <button
                 type="button"
-                disabled={emailRecipientIds.size === 0}
+                disabled={emailRecipientIds.size === 0 || !emailBodyHasWord}
                 onClick={sendComposedEmail}
                 className={`px-6 py-2.5 rounded-xl font-semibold transition-colors ${
-                  emailRecipientIds.size === 0
+                  emailRecipientIds.size === 0 || !emailBodyHasWord
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-[#7A005D] text-white hover:bg-[#60003D]'
                 }`}
