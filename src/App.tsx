@@ -381,6 +381,49 @@ export default function App() {
     { id: '1', names: ['Harry Porter'], role: 'Owner', isGroup: false, title: 'CEO', department: 'Leadership', avatar: 'https://i.pravatar.cc/150?u=harry' }
   ]);
 
+  /** One-shot layout seed for static screenshots (?demo=sharing-shot); strips the param run-time. */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('demo') !== 'sharing-shot') return;
+
+    const linkExpiry = addMonths(new Date(), 6);
+    const linkIso = toIsoDate(linkExpiry);
+
+    setViewMode('advanced2');
+    setPeople([
+      {
+        id: 'shot-row-1',
+        names: ['Avery Lee'],
+        role: 'Editor',
+        isGroup: false,
+        title: 'Product Manager',
+        department: 'Product',
+        avatar: 'https://i.pravatar.cc/120?u=avery-shot',
+      },
+      {
+        id: 'shot-row-2',
+        names: ['Noah Kim'],
+        role: 'View as viewer',
+        isGroup: false,
+        title: 'Software Engineer',
+        department: 'Engineering',
+        avatar: 'https://i.pravatar.cc/120?u=noah-shot',
+        expirationDate: linkIso,
+      },
+    ]);
+    setCheckedRows(new Set(['shot-row-1', 'shot-row-2']));
+    setGeneralAccessScope('anyone_link');
+    setGeneralLinkAccessRole('View as viewer');
+    setGeneralLinkExpirationIso(linkIso);
+    setSelectedChips(['Taylor Nguyen', 'Riley Patel']);
+    setInputValue('Jordan Smith');
+    setIsInputFocused(true);
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('demo');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  }, []);
+
   const transferSearchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -1124,10 +1167,14 @@ export default function App() {
       </div>
 
       {/* Modal Container */}
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-[744px] border border-gray-200 z-10 relative">
+      <div
+        className={`bg-white rounded-2xl shadow-xl w-full max-w-[744px] border border-gray-200 z-10 relative ${
+          isEmailComposerOpen ? 'flex max-h-[min(94vh,960px)] min-h-[min(760px,85vh)] flex-col overflow-hidden' : ''
+        }`}
+      >
         {isEmailComposerOpen ? (
           <>
-            <div className="px-6 pt-6 pb-4 flex items-center gap-3 border-b border-gray-100">
+            <div className="px-6 pt-6 pb-4 flex items-center gap-3 border-b border-gray-100 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsEmailComposerOpen(false)}
@@ -1146,11 +1193,11 @@ export default function App() {
                 <X className="w-6 h-6 text-gray-500" />
               </button>
             </div>
-            <div className="px-6 py-6 space-y-5 max-h-[68vh] overflow-y-auto">
-              <p className="text-sm text-gray-500 -mt-2">
+            <div className="flex flex-1 min-h-0 flex-col gap-5 overflow-hidden px-6 pb-6 pt-6">
+              <p className="shrink-0 text-sm text-gray-500 -mt-2">
                 Select people or groups to notify; everyone is selected by default.
               </p>
-              <div className="space-y-4 max-h-[min(360px,50vh)] overflow-y-auto pr-1">
+              <div className="space-y-4 max-h-[min(320px,40vh)] shrink-0 overflow-y-auto pr-1">
                 {EMAIL_COMPOSER_BUCKET_ORDER.map((bucket) => {
                   const members = people.filter(
                     (p) => emailComposerBucket(p.role) === bucket
@@ -1204,8 +1251,8 @@ export default function App() {
                   );
                 })}
               </div>
-              <div className="space-y-3">
-                <div className="inline-flex h-10 w-[200px] max-w-full items-center rounded-xl border border-gray-300 p-0.5">
+              <div className="flex min-h-[min(480px,58vh)] flex-1 flex-col gap-3 overflow-hidden">
+                <div className="inline-flex h-10 w-[200px] max-w-full shrink-0 items-center rounded-xl border border-gray-300 p-0.5">
                   <button
                     type="button"
                     onClick={() => setEmailComposerTab('edit')}
@@ -1234,8 +1281,8 @@ export default function App() {
                 </div>
 
                 {emailComposerTab === 'edit' ? (
-                  <>
-                    <div className="space-y-2">
+                  <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+                    <div className="space-y-2 shrink-0">
                       <label className="text-[14px] font-semibold text-gray-900">
                         Subject<span className="text-red-500">*</span>
                       </label>
@@ -1249,11 +1296,11 @@ export default function App() {
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[14px] font-semibold text-gray-900">
+                    <div className="flex min-h-0 flex-1 flex-col gap-2 space-y-0 overflow-hidden">
+                      <label className="text-[14px] font-semibold text-gray-900 shrink-0">
                         Body<span className="text-red-500">*</span>
                       </label>
-                      <div className="rounded-lg border border-gray-300">
+                      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-300">
                   <div className="border-b border-gray-300 px-4 py-2.5 text-base text-gray-700">
                     <div className="flex flex-wrap items-center gap-2">
                     <button type="button" className="hover:text-gray-900"><Undo2 className="w-5 h-5" /></button>
@@ -1315,7 +1362,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="h-[160px] min-h-[160px] resize-y overflow-auto p-4 text-sm text-gray-800">
+                  <div className="flex min-h-[200px] flex-1 resize-y overflow-auto p-4 text-sm text-gray-800">
                     {emailComposerTab === 'preview' ? (
                       <div className="rounded-2xl border border-gray-200 bg-[#F8FAFC] p-6">
                         <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Subject</div>
@@ -1382,21 +1429,23 @@ export default function App() {
                   </div>
                 </div>
                     </div>
-                  </>
+                  </div>
                 ) : (
-                  <div className="rounded-2xl border border-gray-200 bg-[#F8FAFC] p-6">
-                    <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Subject</div>
-                    <div className="mt-2 text-[20px] font-semibold text-[#111827]">{emailSubject || defaultEmailSubject()}</div>
-                    <div className="my-4 h-px bg-gray-200" />
-                    <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Message</div>
-                    <div className="mt-3 text-[16px] leading-relaxed text-[#111827]">
-                      <div dangerouslySetInnerHTML={{ __html: emailBodyHtml || `${defaultEmailBody()}<br/>• {Document names}` }} />
+                  <div className="flex min-h-[min(460px,55vh)] flex-1 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-[#F8FAFC] p-6">
+                    <div className="min-h-0 flex-1 overflow-y-auto">
+                      <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Subject</div>
+                      <div className="mt-2 text-[20px] font-semibold text-[#111827]">{emailSubject || defaultEmailSubject()}</div>
+                      <div className="my-4 h-px bg-gray-200" />
+                      <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Message</div>
+                      <div className="mt-3 text-[16px] leading-relaxed text-[#111827]">
+                        <div dangerouslySetInnerHTML={{ __html: emailBodyHtml || `${defaultEmailBody()}<br/>• {Document names}` }} />
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
             </div>
-            <div className="sticky bottom-0 z-10 flex justify-end gap-3 border-t border-gray-100 bg-white px-6 py-4">
+            <div className="sticky bottom-0 z-10 mt-auto flex shrink-0 justify-end gap-3 border-t border-gray-100 bg-white px-6 py-4">
               <button
                 type="button"
                 disabled={emailRecipientIds.size === 0 || !emailBodyHasWord}
@@ -2451,12 +2500,17 @@ export default function App() {
                   </div>
                   {bulkImportRows.length > 0 && (
                     <div className="relative z-[60] mt-5 overflow-visible rounded-xl border border-gray-200">
-                      <table className="min-w-full text-left">
+                      <table className="w-full table-fixed border-separate border-spacing-0 text-left">
+                        <colgroup>
+                          <col style={{width: '36%'}} />
+                          <col style={{width: '56%'}} />
+                          <col style={{width: '8%'}} />
+                        </colgroup>
                         <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
                           <tr>
-                            <th className="px-4 py-3">{bulkImportIdentifierLabel}</th>
-                            <th className="px-4 py-3">People</th>
-                            <th className="px-4 py-3 w-14" />
+                            <th className="px-4 py-3 align-middle">{bulkImportIdentifierLabel}</th>
+                            <th className="px-4 py-3 align-middle">People</th>
+                            <th className="px-4 py-3 align-middle text-right" />
                           </tr>
                         </thead>
                         <tbody>
@@ -2474,7 +2528,7 @@ export default function App() {
                             );
                             return (
                               <tr key={row.id} className="border-t border-gray-100 text-sm text-gray-800">
-                                <td className="px-4 py-3">
+                                <td className="max-w-0 px-4 py-3 align-top">
                                   <input
                                     value={row.original}
                                     onChange={(e) => {
@@ -2487,11 +2541,11 @@ export default function App() {
                                         )
                                       );
                                     }}
-                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#7A005D]/25 focus:border-[#7A005D]"
+                                    className="w-full truncate rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#7A005D]/25 focus:border-[#7A005D]"
                                   />
                                 </td>
-                                <td className="px-4 py-3">
-                                  <div className="relative" data-people-selector="true">
+                                <td className="min-w-[200px] max-w-none px-4 py-3 align-top">
+                                  <div className="relative w-full max-w-[min(100%,28rem)]" data-people-selector="true">
                                     <div className="relative">
                                       <input
                                         value={row.query || matched?.fullName || (row.matchedPersonId === null ? 'Send to external user' : '')}
@@ -2531,7 +2585,7 @@ export default function App() {
                                             });
                                           }
                                         }}
-                                        className="min-h-[40px] w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#7A005D]/25 focus:border-[#7A005D]"
+                                        className="min-h-[40px] w-full truncate rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#7A005D]/25 focus:border-[#7A005D]"
                                       />
                                       <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
                                     </div>
@@ -2585,8 +2639,8 @@ export default function App() {
                                     </AnimatePresence>
                                   </div>
                                 </td>
-                                <td className="px-4 py-3">
-                                  <div className="flex items-center justify-end gap-2">
+                                <td className="whitespace-nowrap px-4 py-3 align-middle text-right">
+                                  <div className="inline-flex items-center justify-end gap-2">
                                   {duplicateMatched && (
                                     <div className="relative group/dup-warning" data-bulk-warning="true">
                                       <AlertCircle className="h-4 w-4 text-amber-500" aria-hidden />
