@@ -1090,7 +1090,7 @@ export default function App() {
                 })}
               </div>
               <div className="space-y-3">
-                <div className="inline-flex h-6 w-[200px] max-w-full items-center rounded-xl border border-gray-300 p-0.5">
+                <div className="inline-flex h-10 w-[200px] max-w-full items-center rounded-xl border border-gray-300 p-0.5">
                   <button
                     type="button"
                     onClick={() => setEmailComposerTab('edit')}
@@ -1115,25 +1115,27 @@ export default function App() {
                   </button>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[14px] font-semibold text-gray-900">
-                    Subject<span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    value={emailSubject}
-                    onChange={(e) => setEmailSubject(e.target.value)}
-                    onBlur={() => {
-                      if (emailSubject.trim() === '') setEmailSubject(defaultEmailSubject());
-                    }}
-                    className="h-11 w-full rounded-lg border border-gray-300 px-4 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#7A005D]/25 focus:border-[#7A005D]"
-                  />
-                </div>
+                {emailComposerTab === 'edit' ? (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-[14px] font-semibold text-gray-900">
+                        Subject<span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        value={emailSubject}
+                        onChange={(e) => setEmailSubject(e.target.value)}
+                        onBlur={() => {
+                          if (emailSubject.trim() === '') setEmailSubject(defaultEmailSubject());
+                        }}
+                        className="h-11 w-full rounded-lg border border-gray-300 px-4 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#7A005D]/25 focus:border-[#7A005D]"
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <label className="text-[14px] font-semibold text-gray-900">
-                    Body<span className="text-red-500">*</span>
-                  </label>
-                  <div className="rounded-lg border border-gray-300">
+                    <div className="space-y-2">
+                      <label className="text-[14px] font-semibold text-gray-900">
+                        Body<span className="text-red-500">*</span>
+                      </label>
+                      <div className="rounded-lg border border-gray-300">
                   <div className="border-b border-gray-300 px-4 py-2.5 text-base text-gray-700">
                     <div className="flex flex-wrap items-center gap-2">
                     <button type="button" className="hover:text-gray-900"><Undo2 className="w-5 h-5" /></button>
@@ -1261,7 +1263,19 @@ export default function App() {
                     )}
                   </div>
                 </div>
-                </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-2xl border border-gray-200 bg-[#F8FAFC] p-6">
+                    <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Subject</div>
+                    <div className="mt-2 text-[40px] font-semibold text-[#111827]">{emailSubject || defaultEmailSubject()}</div>
+                    <div className="my-4 h-px bg-gray-200" />
+                    <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Message</div>
+                    <div className="mt-3 text-[40px] leading-relaxed text-[#111827]">
+                      <div dangerouslySetInnerHTML={{ __html: emailBodyHtml || `${defaultEmailBody()}<br/>• {Document names}` }} />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="sticky bottom-0 z-10 flex justify-end gap-3 border-t border-gray-100 bg-white px-6 py-4">
