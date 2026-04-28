@@ -325,7 +325,7 @@ export default function App() {
   const [isEmailComposerOpen, setIsEmailComposerOpen] = useState(false);
   const [emailRecipientIds, setEmailRecipientIds] = useState<Set<string>>(new Set());
   const [emailComposerTab, setEmailComposerTab] = useState<'edit' | 'preview'>('edit');
-  const [emailSubject, setEmailSubject] = useState('{Username} shared a {artifact type}');
+  const [emailSubject, setEmailSubject] = useState('Action required for documents');
   const [emailCustomMessage, setEmailCustomMessage] = useState('');
   
   const [people, setPeople] = useState<Person[]>([
@@ -684,9 +684,8 @@ export default function App() {
     const all = new Set(people.map((p) => p.id));
     setEmailRecipientIds(all);
     setEmailComposerTab('edit');
-    const ownerName = people.find((p) => p.role === 'Owner')?.names[0] ?? 'Harry Porter';
-    setEmailSubject(`${ownerName} shared a document`);
-    setEmailCustomMessage('{Username} shared {filename} with you, you can now {access type}');
+    setEmailSubject('Action required for documents');
+    setEmailCustomMessage('Please review and send the documents\n• {Document names}');
     setIsEmailComposerOpen(true);
   };
 
@@ -872,13 +871,12 @@ export default function App() {
                   );
                 })}
               </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-semibold text-gray-900">Custom message</h3>
-                <div className="grid grid-cols-2 rounded-xl border border-gray-300 p-1">
+              <div className="space-y-3">
+                <div className="grid max-w-[270px] grid-cols-2 rounded-2xl border border-gray-300 p-0.5">
                   <button
                     type="button"
                     onClick={() => setEmailComposerTab('edit')}
-                    className={`rounded-lg py-2 text-sm font-medium transition-colors ${
+                    className={`rounded-xl py-2 text-base font-semibold transition-colors ${
                       emailComposerTab === 'edit'
                         ? 'bg-[#8b0069] text-white'
                         : 'text-gray-800 hover:bg-gray-50'
@@ -889,7 +887,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setEmailComposerTab('preview')}
-                    className={`rounded-lg py-2 text-sm font-medium transition-colors ${
+                    className={`rounded-xl py-2 text-base font-semibold transition-colors ${
                       emailComposerTab === 'preview'
                         ? 'bg-[#8b0069] text-white'
                         : 'text-gray-800 hover:bg-gray-50'
@@ -900,55 +898,50 @@ export default function App() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-900">
+                  <label className="text-[14px] font-semibold text-gray-900">
                     Subject<span className="text-red-500">*</span>
                   </label>
                   <input
                     value={emailSubject}
                     onChange={(e) => setEmailSubject(e.target.value)}
-                    className="w-full rounded-2xl border border-gray-300 px-4 py-2.5 text-[18px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#7A005D]/25 focus:border-[#7A005D]"
+                    className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-[18px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#7A005D]/25 focus:border-[#7A005D]"
                   />
                 </div>
 
-                <div className="rounded-3xl border border-gray-300 overflow-hidden">
-                  <div className="flex flex-wrap items-center gap-2 border-b border-gray-300 px-3 py-2 text-lg text-gray-700">
+                <div className="space-y-2">
+                  <label className="text-[14px] font-semibold text-gray-900">
+                    Body<span className="text-red-500">*</span>
+                  </label>
+                  <div className="rounded-2xl border border-gray-300 overflow-hidden">
+                  <div className="flex flex-wrap items-center gap-2 border-b border-gray-300 px-4 py-3 text-lg text-gray-700">
                     <button type="button" className="hover:text-gray-900">↩</button>
                     <button type="button" className="hover:text-gray-900">↪</button>
                     <span className="text-gray-300">|</span>
                     <button type="button" className="font-semibold hover:text-gray-900">B</button>
-                    <button type="button" className="italic hover:text-gray-900">I</button>
-                    <button type="button" className="hover:text-gray-900">⋯</button>
+                    <button type="button" className="italic hover:text-gray-900">/</button>
                     <span className="text-gray-300">|</span>
-                    <button type="button" className="text-sm px-2 py-1 rounded border border-gray-300 bg-white">Normal text</button>
+                    <button type="button" className="text-sm px-3 py-1 rounded-lg border border-gray-300 bg-white">Normal text</button>
                     <span className="text-gray-300">|</span>
                     <button type="button" className="hover:text-gray-900">−</button>
-                    <button type="button" className="text-sm px-2 py-1 rounded border border-gray-300 bg-white">15</button>
+                    <button type="button" className="text-sm px-2 py-1 rounded-lg border border-gray-300 bg-white">15</button>
                     <button type="button" className="hover:text-gray-900">+</button>
                     <span className="text-gray-300">|</span>
-                    <button type="button" className="text-sm px-3 py-1 rounded-xl border border-[#d4a700] text-[#7a5d00] bg-white">⚡ Insert variable</button>
+                    <button type="button" className="ml-auto text-sm px-4 py-1.5 rounded-2xl border border-gray-300 bg-white text-gray-700">⚡ Insert variable</button>
                   </div>
 
-                  <div className="min-h-[120px] p-4 text-[18px] text-gray-800">
+                  <div className="min-h-[220px] p-6 text-[18px] text-gray-800">
                     {emailComposerTab === 'preview' ? (
-                      <p className="leading-relaxed">
-                        {'{Username} shared {filename} with you, you can now '}
-                        <span className="ml-2 inline-flex items-center overflow-hidden rounded-md border border-gray-400 align-middle bg-white">
-                          <span className="px-1.5 py-0.5 text-[12px] text-gray-700">[x]</span>
-                          <span className="border-l border-r border-gray-300 px-2 py-0.5 text-[12px] text-gray-900">Access type</span>
-                          <span className="px-1.5 py-0.5 text-[16px] leading-none text-gray-700">×</span>
-                        </span>
-                      </p>
+                      <div className="whitespace-pre-line leading-relaxed">{emailCustomMessage}</div>
                     ) : (
-                      <div className="leading-relaxed">
-                        <span>{'{Username} shared {filename} with you, you can now '}</span>
-                        <span className="ml-2 inline-flex items-center overflow-hidden rounded-md border border-gray-400 align-middle bg-white">
-                          <span className="px-1.5 py-0.5 text-[12px] text-gray-700">[x]</span>
-                          <span className="border-l border-r border-gray-300 px-2 py-0.5 text-[12px] text-gray-900">Access type</span>
-                          <span className="px-1.5 py-0.5 text-[16px] leading-none text-gray-700">×</span>
-                        </span>
-                      </div>
+                      <textarea
+                        value={emailCustomMessage}
+                        onChange={(e) => setEmailCustomMessage(e.target.value)}
+                        rows={6}
+                        className="w-full resize-none bg-transparent text-[18px] leading-relaxed text-gray-800 outline-none"
+                      />
                     )}
                   </div>
+                </div>
                 </div>
               </div>
               <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
