@@ -494,6 +494,36 @@ export default function App() {
     setBulkInputValue('');
   };
 
+  const selectBulkMatchedPerson = (rowId: string, personOption: BulkDirectoryPerson) => {
+    let duplicate = false;
+    setBulkImportRows((prev) => {
+      const alreadyAssigned = prev.some(
+        (entry) => entry.id !== rowId && entry.matchedPersonId === personOption.id
+      );
+      if (alreadyAssigned) {
+        duplicate = true;
+        return prev.map((entry) =>
+          entry.id === rowId
+            ? { ...entry, dropdownOpen: true }
+            : entry
+        );
+      }
+      return prev.map((entry) =>
+        entry.id === rowId
+          ? {
+              ...entry,
+              matchedPersonId: personOption.id,
+              dropdownOpen: false,
+              query: personOption.fullName,
+            }
+          : entry
+      );
+    });
+    if (duplicate) {
+      showToast(`${personOption.fullName} is already matched in another row`);
+    }
+  };
+
   // Component for tags cell with overflow detection
   const TagsCell = ({ names }: { names: string[] }) => {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -2578,22 +2608,7 @@ export default function App() {
                                               key={personOption.id}
                                               type="button"
                                               data-menu-item="true"
-                                              onClick={() => {
-                                                const alreadyAssigned = bulkImportRows.some(
-                                                  (entry) => entry.id !== row.id && entry.matchedPersonId === personOption.id
-                                                );
-                                                if (alreadyAssigned) {
-                                                  showToast(`${personOption.fullName} is already matched in another row`);
-                                                  return;
-                                                }
-                                                setBulkImportRows((prev) =>
-                                                  prev.map((item) =>
-                                                    item.id === row.id
-                                                      ? { ...item, matchedPersonId: personOption.id, dropdownOpen: false, query: personOption.fullName }
-                                                      : item
-                                                  )
-                                                );
-                                              }}
+                                              onClick={() => selectBulkMatchedPerson(row.id, personOption)}
                                               className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50"
                                             >
                                               <span className="inline-flex items-center gap-2">
