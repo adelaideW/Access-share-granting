@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { 
   X, 
-  MoreVertical, 
+  FileUp, 
   Copy, 
   Mail, 
   Eye, 
@@ -216,6 +216,8 @@ function emailComposerBucket(role: AccessLevel): EmailComposerBucket {
 }
 
 type GeneralAccessScope = 'restricted' | 'company' | 'anyone_link';
+type EmailVariableOption = 'Recipient' | 'Username' | 'Filename' | 'File type' | 'Access type';
+type EmailVariableChip = { id: string; option: EmailVariableOption; label: string };
 
 function generalAccessSubtitle(
   scope: GeneralAccessScope,
@@ -325,6 +327,10 @@ export default function App() {
   const [emailComposerTab, setEmailComposerTab] = useState<'edit' | 'preview'>('edit');
   const [emailSubject, setEmailSubject] = useState('Harry Porter shared document with you');
   const [emailCustomMessage, setEmailCustomMessage] = useState('');
+  const [emailVariableChips, setEmailVariableChips] = useState<EmailVariableChip[]>([
+    { id: 'default-access-type', option: 'Access type', label: 'Access type' },
+  ]);
+  const [isVariableMenuOpen, setIsVariableMenuOpen] = useState(false);
   
   const [people, setPeople] = useState<Person[]>([
     { id: '1', names: ['Harry Porter'], role: 'Owner', isGroup: false, title: 'CEO', department: 'Leadership', avatar: 'https://i.pravatar.cc/150?u=harry' }
@@ -338,6 +344,7 @@ export default function App() {
   const generalRoleDropdownRef = useRef<HTMLDivElement>(null);
   const expirationCalendarPopoverRef = useRef<HTMLDivElement>(null);
   const generalExpirationCalendarPopoverRef = useRef<HTMLDivElement>(null);
+  const variableMenuRef = useRef<HTMLDivElement>(null);
 
   const [calendarOpenPersonId, setCalendarOpenPersonId] = useState<string | null>(null);
 
@@ -625,6 +632,12 @@ export default function App() {
       ) {
         setCalendarGeneralLinkOpen(false);
       }
+      if (
+        variableMenuRef.current &&
+        !variableMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsVariableMenuOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -681,8 +694,37 @@ export default function App() {
     setEmailComposerTab('edit');
     const ownerName = people.find((p) => p.role === 'Owner')?.names[0] ?? 'Harry Porter';
     setEmailSubject(`${ownerName} shared document with you`);
-    setEmailCustomMessage('{Username} shared {filename} with you, you can now ');
+    setEmailCustomMessage(`${ownerName} shared ${sharedFilename} with you, you can now `);
+    setEmailVariableChips([{ id: 'default-access-type', option: 'Access type', label: 'Access type' }]);
     setIsEmailComposerOpen(true);
+  };
+
+  const defaultEmailSubject = () => {
+    const ownerName = people.find((p) => p.role === 'Owner')?.names[0] ?? 'Harry Porter';
+    return `${ownerName} shared document with you`;
+  };
+
+  const defaultEmailBody = () => {
+    const ownerName = people.find((p) => p.role === 'Owner')?.names[0] ?? 'Harry Porter';
+    return `${ownerName} shared ${sharedFilename} with you, you can now `;
+  };
+
+  const insertVariableChip = (option: EmailVariableOption) => {
+    const ownerName = people.find((p) => p.role === 'Owner')?.names[0] ?? 'Harry Porter';
+    const labelMap: Record<EmailVariableOption, string> = {
+      Recipient: 'Recipient',
+      Username: ownerName,
+      Filename: sharedFilename,
+      'File type': 'document',
+      'Access type': 'Access type',
+    };
+    const nextChip: EmailVariableChip = {
+      id: `${option}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      option,
+      label: labelMap[option],
+    };
+    setEmailVariableChips((prev) => [...prev, nextChip]);
+    setIsVariableMenuOpen(false);
   };
 
   const sendComposedEmail = () => {
@@ -801,7 +843,7 @@ export default function App() {
                 <X className="w-6 h-6 text-gray-500" />
               </button>
             </div>
-            <div className="px-6 py-6 space-y-5 max-h-[78vh] overflow-y-auto">
+            <div className="px-6 py-6 space-y-5 max-h-[68vh] overflow-y-auto">
               <p className="text-sm text-gray-500 -mt-2">
                 Select people or groups to notify; everyone is selected by default.
               </p>
@@ -860,11 +902,11 @@ export default function App() {
                 })}
               </div>
               <div className="space-y-3">
-                <div className="inline-flex h-10 max-w-fit items-center rounded-lg border border-gray-300 p-0.5">
+                <div className="inline-flex h-6 max-w-fit items-center rounded-lg border border-gray-300 p-px">
                   <button
                     type="button"
                     onClick={() => setEmailComposerTab('edit')}
-                    className={`rounded-md px-9 text-sm font-normal transition-colors ${
+                    className={`h-full rounded-md px-1 text-sm font-normal transition-colors ${
                       emailComposerTab === 'edit'
                         ? 'bg-[#8b0069] text-white'
                         : 'text-gray-800 hover:bg-gray-50'
@@ -875,7 +917,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setEmailComposerTab('preview')}
-                    className={`rounded-md px-9 text-sm font-normal transition-colors ${
+                    className={`h-full rounded-md px-1 text-sm font-normal transition-colors ${
                       emailComposerTab === 'preview'
                         ? 'bg-[#8b0069] text-white'
                         : 'text-gray-800 hover:bg-gray-50'
@@ -892,6 +934,9 @@ export default function App() {
                   <input
                     value={emailSubject}
                     onChange={(e) => setEmailSubject(e.target.value)}
+                    onBlur={() => {
+                      if (emailSubject.trim() === '') setEmailSubject(defaultEmailSubject());
+                    }}
                     className="h-11 w-full rounded-lg border border-gray-300 px-4 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#7A005D]/25 focus:border-[#7A005D]"
                   />
                 </div>
@@ -930,55 +975,111 @@ export default function App() {
                     <button type="button" className="hover:text-gray-900">🔗</button>
                     <button type="button" className="hover:text-gray-900">🖼</button>
                     <button type="button" className="hover:text-gray-900">⊕</button>
-                    <button type="button" className="ml-auto text-sm px-4 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700">⚡ Insert variable</button>
+                    <div className="relative ml-auto" ref={variableMenuRef}>
+                      <button
+                        type="button"
+                        onClick={() => setIsVariableMenuOpen((o) => !o)}
+                        className="text-sm px-4 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700"
+                      >
+                        ⚡ Insert variable
+                      </button>
+                      <AnimatePresence>
+                        {isVariableMenuOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 6 }}
+                            className="absolute right-0 top-full z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-xl"
+                          >
+                            {(['Recipient', 'Username', 'Filename', 'File type', 'Access type'] as const).map((option) => (
+                              <button
+                                key={option}
+                                type="button"
+                                onClick={() => insertVariableChip(option)}
+                                className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-50"
+                              >
+                                {option}
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                     </div>
                   </div>
 
-                  <div className="h-[240px] min-h-[240px] resize-y overflow-auto p-6 text-sm text-gray-800">
+                  <div className="h-[160px] min-h-[160px] resize-y overflow-auto p-4 text-sm text-gray-800">
                     {emailComposerTab === 'preview' ? (
                       <div className="leading-relaxed">
                         <span>{emailCustomMessage}</span>
-                        <span className="ml-2 inline-flex items-center overflow-hidden rounded-md border border-gray-400 align-middle bg-white">
-                          <span className="px-1.5 py-0.5 text-[12px] text-gray-700">[x]</span>
-                          <span className="border-l border-r border-gray-300 px-2 py-0.5 text-[12px] text-gray-900">Access type</span>
-                          <span className="px-1.5 py-0.5 text-[16px] leading-none text-gray-700">×</span>
-                        </span>
+                        {emailVariableChips.map((chip) => (
+                          <span key={chip.id} className="ml-2 inline-flex items-center overflow-hidden rounded-md border border-gray-400 align-middle bg-white">
+                            <span className="px-1.5 py-0.5 text-[12px] text-gray-700">[x]</span>
+                            <span className="border-l border-r border-gray-300 px-2 py-0.5 text-[12px] text-gray-900">{chip.label}</span>
+                            <span className="px-1.5 py-0.5 text-[16px] leading-none text-gray-700">×</span>
+                          </span>
+                        ))}
                       </div>
                     ) : (
-                      <div className="leading-relaxed">
-                        <span>{emailCustomMessage}</span>
-                        <span className="ml-2 inline-flex items-center overflow-hidden rounded-md border border-gray-400 align-middle bg-white">
-                          <span className="px-1.5 py-0.5 text-[12px] text-gray-700">[x]</span>
-                          <span className="border-l border-r border-gray-300 px-2 py-0.5 text-[12px] text-gray-900">Access type</span>
-                          <span className="px-1.5 py-0.5 text-[16px] leading-none text-gray-700">×</span>
-                        </span>
+                      <div className="space-y-2">
+                        <textarea
+                          value={emailCustomMessage}
+                          onChange={(e) => setEmailCustomMessage(e.target.value)}
+                          onBlur={() => {
+                            if (emailCustomMessage.trim() === '' && emailVariableChips.length === 0) {
+                              setEmailCustomMessage(defaultEmailBody());
+                              setEmailVariableChips([
+                                { id: 'default-access-type', option: 'Access type', label: 'Access type' },
+                              ]);
+                            }
+                          }}
+                          rows={3}
+                          className="w-full resize-y bg-transparent leading-relaxed text-gray-800 outline-none"
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          {emailVariableChips.map((chip) => (
+                            <span key={chip.id} className="inline-flex items-center overflow-hidden rounded-md border border-gray-400 bg-white">
+                              <span className="px-1.5 py-0.5 text-[12px] text-gray-700">[x]</span>
+                              <span className="border-l border-r border-gray-300 px-2 py-0.5 text-[12px] text-gray-900">{chip.label}</span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setEmailVariableChips((prev) => prev.filter((c) => c.id !== chip.id))
+                                }
+                                className="px-1.5 py-0.5 text-[16px] leading-none text-gray-700 hover:text-red-600"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
                 </div>
               </div>
-              <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setIsEmailComposerOpen(false)}
-                  className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-800 font-medium hover:bg-gray-50"
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  disabled={emailRecipientIds.size === 0}
-                  onClick={sendComposedEmail}
-                  className={`px-6 py-2.5 rounded-xl font-semibold transition-colors ${
-                    emailRecipientIds.size === 0
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-[#7A005D] text-white hover:bg-[#60003D]'
-                  }`}
-                >
-                  Send
-                </button>
-              </div>
+            </div>
+            <div className="sticky bottom-0 z-10 flex justify-end gap-3 border-t border-gray-100 bg-white px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setIsEmailComposerOpen(false)}
+                className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-800 font-medium hover:bg-gray-50"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                disabled={emailRecipientIds.size === 0}
+                onClick={sendComposedEmail}
+                className={`px-6 py-2.5 rounded-xl font-semibold transition-colors ${
+                  emailRecipientIds.size === 0
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-[#7A005D] text-white hover:bg-[#60003D]'
+                }`}
+              >
+                Send
+              </button>
             </div>
           </>
         ) : (
@@ -1027,7 +1128,7 @@ export default function App() {
                   onChange={(e) => setInputValue(e.target.value)}
                   placeholder={selectedChips.length === 0 ? "Add people or group" : ""} 
                   onFocus={() => setIsInputFocused(true)}
-                  className="flex-1 min-w-[120px] py-1 bg-transparent outline-none text-gray-700 placeholder-gray-400"
+                  className="flex-1 min-w-[120px] py-1 pl-2 bg-transparent outline-none text-gray-700 placeholder-gray-400"
                 />
               </div>
               
@@ -1042,9 +1143,9 @@ export default function App() {
                     className="p-1 hover:bg-gray-100 rounded transition-colors text-gray-500"
                     aria-label="Bulk add list"
                   >
-                    <span className="inline-block text-lg leading-none">⋮</span>
+                    <FileUp className="w-5 h-5" />
                   </button>
-                  <div className="invisible absolute bottom-full right-0 z-50 mb-2 w-72 rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all group-hover/bulk-tooltip:visible group-hover/bulk-tooltip:opacity-100">
+                  <div className="invisible absolute bottom-full right-0 z-50 mb-2 w-72 rounded-xl border border-gray-300 bg-[#EDEBE7] px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all group-hover/bulk-tooltip:visible group-hover/bulk-tooltip:opacity-100">
                     Bulk add a list of employees using names, IDs, or email addresses
                   </div>
                 </div>
@@ -1239,7 +1340,7 @@ export default function App() {
 
           <div className="border border-gray-200 rounded-xl overflow-visible">
             {/* Table Header */}
-            <div className={`grid ${gridCols} gap-x-10 pl-6 pr-0 py-3 bg-gray-50/50 border-b border-gray-200 text-sm font-medium text-gray-500`}>
+            <div className={`grid ${gridCols} gap-x-10 pl-6 pr-2 py-3 bg-gray-50/50 border-b border-gray-200 text-sm font-medium text-gray-500`}>
               <div className="flex min-w-0 items-center gap-4">
                 <span className="shrink-0">People</span>
               </div>
@@ -1255,7 +1356,7 @@ export default function App() {
 
             {/* Table Row */}
             {people.map(person => (
-              <div key={person.id} className={`grid ${gridCols} gap-x-10 pl-6 pr-0 py-4 items-center hover:bg-gray-50 transition-colors group/row relative`}>
+              <div key={person.id} className={`grid ${gridCols} gap-x-10 pl-6 pr-2 py-4 items-center hover:bg-gray-50 transition-colors group/row relative`}>
                 <div className="flex min-w-0 w-full items-center">
                   <div className="min-w-0 flex-1">
                     <TagsCell names={person.names} />
@@ -1363,7 +1464,7 @@ export default function App() {
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 10 }}
-                            className="absolute left-0 top-full z-[60] mt-2 w-72 rounded-xl border border-gray-200 bg-white py-2 shadow-2xl"
+                            className="absolute left-0 top-full z-[60] mt-2 w-72 max-h-[320px] overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-2xl"
                           >
                               <button 
                                 type="button"
@@ -1598,7 +1699,7 @@ export default function App() {
                           initial={{ opacity: 0, y: 4 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: 4 }}
-                          className="absolute left-0 top-full mt-1.5 z-[70] w-[400px] bg-white rounded-xl border border-gray-200 shadow-2xl py-1 overflow-hidden"
+                          className="absolute left-0 top-full mt-1.5 z-[70] w-[240px] bg-white rounded-xl border border-gray-200 shadow-2xl py-1 overflow-hidden"
                         >
                           {(
                             [
@@ -1614,7 +1715,7 @@ export default function App() {
                                 setGeneralAccessScope(opt.key);
                                 setGeneralScopeDropdownOpen(false);
                               }}
-                              className="w-full px-4 py-2.5 flex items-start justify-between gap-3 text-left hover:bg-gray-50"
+                              className="w-full px-4 py-2.5 flex items-start justify-between gap-3 text-left hover:bg-[#EDEBE7]"
                             >
                               <span className="text-[14px] text-gray-900">{opt.listLabel}</span>
                               <span className="mt-0.5 w-5 shrink-0 flex justify-center">
@@ -1653,7 +1754,7 @@ export default function App() {
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 10 }}
-                            className="absolute right-0 top-full z-[70] mt-2 w-72 overflow-hidden rounded-xl border border-gray-200 bg-white py-2 shadow-2xl"
+                            className="absolute right-0 top-full z-[70] mt-2 w-72 max-h-[320px] overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-2xl"
                           >
                               <button
                                 type="button"
@@ -1777,7 +1878,7 @@ export default function App() {
                       </AnimatePresence>
 
                       {generalLinkExpirationIso && (
-                        <div className="relative mt-2 flex flex-wrap items-center gap-2 text-[13px] text-[#5f6368]">
+                        <div className="relative mt-1 flex items-center gap-2 whitespace-nowrap text-[13px] text-[#5f6368]">
                           <span>Expires</span>
                           <button
                             type="button"
