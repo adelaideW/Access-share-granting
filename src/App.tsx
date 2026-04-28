@@ -37,7 +37,8 @@ import {
   Link2,
   Image,
   CirclePlus,
-  Zap
+  Zap,
+  Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -729,6 +730,7 @@ export default function App() {
   // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
+      const target = event.target as HTMLElement | null;
       if (inputRef.current && !inputRef.current.contains(event.target as Node)) {
         setIsInputFocused(false);
       }
@@ -767,6 +769,15 @@ export default function App() {
         !variableMenuRef.current.contains(event.target as Node)
       ) {
         setIsVariableMenuOpen(false);
+      }
+      if (!target?.closest('[data-people-selector]')) {
+        setBulkImportRows((prev) =>
+          prev.map((row) => ({
+            ...row,
+            dropdownOpen: false,
+            query: row.matchedPersonId ? row.query : '',
+          }))
+        );
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -961,13 +972,13 @@ export default function App() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] min-w-[280px] max-w-[420px] min-h-[56px] bg-[#C1E9DA] rounded-2xl shadow-lg flex items-center px-4 py-2 justify-between gap-2"
+            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] min-w-[300px] max-w-[720px] min-h-[88px] bg-[#C9D7EF] rounded-3xl shadow-[0_16px_40px_rgba(0,0,0,0.35)] flex items-center px-6 py-4 justify-between gap-4 border border-[#B5C4DF]"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="bg-[#0D6345] rounded-full p-0.5 shrink-0">
-                <CheckCircle2 className="w-5 h-5 text-white" />
+              <div className="bg-[#4A67A1] rounded-full p-2 shrink-0">
+                <Info className="w-6 h-6 text-white" />
               </div>
-              <span className="text-[#003926] font-semibold text-base leading-snug break-words">{snackbarMessage}</span>
+              <span className="text-[#1B2A44] font-semibold text-[20px] leading-snug break-words">{snackbarMessage}</span>
             </div>
             <button 
               type="button"
@@ -977,9 +988,9 @@ export default function App() {
               }}
               className="relative flex items-center justify-center shrink-0"
             >
-              <div className="absolute inset-0 border-2 border-[#0D6345] rounded-full opacity-30"></div>
-              <div className="bg-[#0D6345] rounded-full p-1">
-                <X className="w-3 h-3 text-white" />
+              <div className="absolute inset-0 border-2 border-[#4A67A1] rounded-full opacity-70"></div>
+              <div className="bg-[#4A67A1] rounded-full p-1.5">
+                <X className="w-4 h-4 text-white" />
               </div>
             </button>
           </motion.div>
@@ -1116,7 +1127,10 @@ export default function App() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setEmailComposerTab('preview')}
+                    onClick={() => {
+                      refreshBodyWordState();
+                      setEmailComposerTab('preview');
+                    }}
                     className={`h-full w-1/2 rounded-r-lg px-4 text-sm font-semibold transition-colors ${
                       emailComposerTab === 'preview'
                         ? 'bg-[#8b0069] text-white'
@@ -1213,7 +1227,7 @@ export default function App() {
                     {emailComposerTab === 'preview' ? (
                       <div className="rounded-2xl border border-gray-200 bg-[#F8FAFC] p-6">
                         <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Subject</div>
-                        <div className="mt-2 text-[24px] font-semibold text-[#111827]">{emailSubject || defaultEmailSubject()}</div>
+                        <div className="mt-2 text-[20px] font-semibold text-[#111827]">{emailSubject || defaultEmailSubject()}</div>
                         <div className="my-4 h-px bg-gray-200" />
                         <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Message</div>
                         <div className="mt-3 text-[16px] leading-relaxed text-[#111827]">
@@ -1280,7 +1294,7 @@ export default function App() {
                 ) : (
                   <div className="rounded-2xl border border-gray-200 bg-[#F8FAFC] p-6">
                     <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Subject</div>
-                    <div className="mt-2 text-[24px] font-semibold text-[#111827]">{emailSubject || defaultEmailSubject()}</div>
+                    <div className="mt-2 text-[20px] font-semibold text-[#111827]">{emailSubject || defaultEmailSubject()}</div>
                     <div className="my-4 h-px bg-gray-200" />
                     <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Message</div>
                     <div className="mt-3 text-[16px] leading-relaxed text-[#111827]">
@@ -2316,7 +2330,7 @@ export default function App() {
                                   />
                                 </td>
                                 <td className="px-4 py-3">
-                                  <div className="relative">
+                                  <div className="relative" data-people-selector="true">
                                     <div className="relative">
                                       <input
                                         value={row.query || matched?.fullName || (row.matchedPersonId === null ? 'Send to external user' : '')}
@@ -2351,22 +2365,24 @@ export default function App() {
                                           exit={{ opacity: 0, y: 6 }}
                                           className="absolute left-0 top-full z-[400] mt-2 w-full max-h-[220px] overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 shadow-xl"
                                         >
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              setBulkImportRows((prev) =>
-                                                prev.map((item) =>
-                                                  item.id === row.id
-                                                    ? { ...item, matchedPersonId: null, dropdownOpen: false, query: '' }
-                                                    : item
+                                          {row.query.trim() === '' && (
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setBulkImportRows((prev) =>
+                                                  prev.map((item) =>
+                                                    item.id === row.id
+                                                      ? { ...item, matchedPersonId: null, dropdownOpen: false, query: '' }
+                                                      : item
+                                                  )
                                                 )
-                                              )
-                                            }
-                                            className="mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                          >
-                                            <span>Send to external user</span>
-                                            {!matched && <Check className="h-4 w-4 text-[#7A005D]" />}
-                                          </button>
+                                              }
+                                              className="mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                            >
+                                              <span>Send to external user</span>
+                                              {!matched && <Check className="h-4 w-4 text-[#7A005D]" />}
+                                            </button>
+                                          )}
                                           {filteredPeople.map((personOption) => (
                                             <button
                                               key={personOption.id}
