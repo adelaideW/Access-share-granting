@@ -856,11 +856,11 @@ export default function App() {
     wrapper.dataset.chip = option;
 
     const left = document.createElement('span');
-    left.className = 'px-1.5 py-0.5 text-[12px] text-gray-700';
+    left.className = 'px-1.5 py-0.5 text-[16px] text-gray-700';
     left.textContent = '[x]';
 
     const middle = document.createElement('span');
-    middle.className = 'ml-1 px-2 py-0.5 text-[12px] text-gray-900';
+    middle.className = 'ml-1 px-2 py-0.5 text-[16px] text-gray-900';
     middle.textContent = labelMap[option];
 
     const remove = document.createElement('button');
@@ -1201,10 +1201,10 @@ export default function App() {
                     {emailComposerTab === 'preview' ? (
                       <div className="rounded-2xl border border-gray-200 bg-[#F8FAFC] p-6">
                         <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Subject</div>
-                        <div className="mt-2 text-[40px] font-semibold text-[#111827]">{emailSubject || defaultEmailSubject()}</div>
+                        <div className="mt-2 text-[24px] font-semibold text-[#111827]">{emailSubject || defaultEmailSubject()}</div>
                         <div className="my-4 h-px bg-gray-200" />
                         <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Message</div>
-                        <div className="mt-3 text-[40px] leading-relaxed text-[#111827]">
+                        <div className="mt-3 text-[16px] leading-relaxed text-[#111827]">
                           <div dangerouslySetInnerHTML={{ __html: emailBodyHtml || `${defaultEmailBody()}<br/>• {Document names}` }} />
                         </div>
                       </div>
@@ -1268,10 +1268,10 @@ export default function App() {
                 ) : (
                   <div className="rounded-2xl border border-gray-200 bg-[#F8FAFC] p-6">
                     <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Subject</div>
-                    <div className="mt-2 text-[40px] font-semibold text-[#111827]">{emailSubject || defaultEmailSubject()}</div>
+                    <div className="mt-2 text-[24px] font-semibold text-[#111827]">{emailSubject || defaultEmailSubject()}</div>
                     <div className="my-4 h-px bg-gray-200" />
                     <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Message</div>
-                    <div className="mt-3 text-[40px] leading-relaxed text-[#111827]">
+                    <div className="mt-3 text-[16px] leading-relaxed text-[#111827]">
                       <div dangerouslySetInnerHTML={{ __html: emailBodyHtml || `${defaultEmailBody()}<br/>• {Document names}` }} />
                     </div>
                   </div>
