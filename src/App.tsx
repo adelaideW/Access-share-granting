@@ -38,9 +38,22 @@ import {
   Image,
   CirclePlus,
   Zap,
-  Info
+  Info,
+  AlertCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { SnackbarToneIcon } from './components/SnackbarToneIcon.tsx';
+import {
+  DEMO_BULK_DIRECTORY,
+  detectBulkIdentifierType,
+  findMatchedPerson,
+  newBulkImportRowId,
+  type BulkDirectoryPerson,
+  type BulkIdentifierType,
+} from './lib/bulk.ts';
+import { inferToastTone, type SnackbarTone } from './lib/snackbarTone.ts';
+
+const bulkDirectory = DEMO_BULK_DIRECTORY;
 
 /** Matches access dropdown labels (screenshot); stored verbatim in the Access cell */
 type AccessLevel =
@@ -76,14 +89,6 @@ function toIsoDate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
-}
-
-/** Ids must be unique per row; `Date.now()` alone collides under rapid repeats and breaks React keys. */
-function newBulkImportRowId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return `bulk-${crypto.randomUUID()}`;
-  }
-  return `bulk-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
 function formatExpirationDisplay(iso: string): string {
@@ -243,8 +248,6 @@ function emailComposerBucket(role: AccessLevel): EmailComposerBucket {
 type GeneralAccessScope = 'restricted' | 'company' | 'anyone_link';
 type EmailVariableOption = 'Recipient' | 'Username' | 'Filename' | 'File type' | 'Access type';
 type EmailVariableChip = { id: string; option: EmailVariableOption; label: string };
-type BulkIdentifierType = 'email' | 'employee_id' | 'name';
-type BulkDirectoryPerson = { id: string; fullName: string; email: string; employeeId: string; avatar: string };
 type BulkImportRow = {
   id: string;
   original: string;
@@ -253,7 +256,6 @@ type BulkImportRow = {
   query: string;
   dropdownOpen: boolean;
 };
-type SnackbarTone = 'success' | 'warning' | 'info' | 'error';
 
 function generalAccessSubtitle(
   scope: GeneralAccessScope,
@@ -348,14 +350,6 @@ export default function App() {
   const [pendingTransferPersonId, setPendingTransferPersonId] = useState<string | null>(null);
   const snackbarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const inferToastTone = (message: string): SnackbarTone => {
-    const normalized = message.toLowerCase();
-    if (/(could not|failed|error|invalid|unable)/.test(normalized)) return 'error';
-    if (/(already|duplicate|no |cannot|warning|not found)/.test(normalized)) return 'warning';
-    if (/(copied|saved|complete|added|selected|updated|sent|matched)/.test(normalized)) return 'success';
-    return 'info';
-  };
-
   const showToast = (message: string) => {
     if (snackbarTimerRef.current) clearTimeout(snackbarTimerRef.current);
     setSnackbarTone(inferToastTone(message));
@@ -402,50 +396,6 @@ export default function App() {
 
   const [calendarOpenPersonId, setCalendarOpenPersonId] = useState<string | null>(null);
 
-  const bulkDirectory: BulkDirectoryPerson[] = [
-    'Harry Porter', 'Avery Lee', 'Noah Kim', 'Riley Patel', 'Jordan Smith', 'Taylor Nguyen', 'Skyler Brown', 'Casey Johnson',
-    'Morgan Davis', 'Elliot Turner', 'Parker Hall', 'Logan Gray', 'Dakota Young', 'Cameron Rivera', 'Blake Collins',
-    'Rowan Hughes', 'Quinn Foster', 'Jamie Brooks', 'Alex Morgan', 'Sam Carter', 'Chris Bennett', 'Drew Adams',
-    'Robin Flores', 'Charlie Ward', 'Finley James', 'Emerson Cook', 'Hayden Bell', 'Kai Watson', 'Sage Ross', 'Ari Cooper',
-    'Reese Richardson', 'Micah Sanders', 'Kendall Price', 'Payton Kelly', 'Shawn Patterson', 'Bailey Murphy', 'Corey Barnes',
-    'Jules Diaz', 'River Henderson', 'Peyton Stewart', 'Marley Jenkins', 'Toby Perry', 'Sidney Powell', 'Phoenix Long',
-    'Remy Hughes', 'Nico Coleman', 'Lane Simmons', 'Dylan Fisher', 'Harper Griffin', 'Parker Woods', 'Rory Bryant',
-    'Emery Russell', 'Dakota Coleman', 'Robin Hayes', 'Jaden Foster'
-  ].map((fullName, index) => {
-    const normalized = fullName.toLowerCase().replace(/\s+/g, '.');
-    const employeeId = `E${(1001 + index).toString().padStart(4, '0')}`;
-    return {
-      id: `emp-${1001 + index}`,
-      fullName,
-      email: `${normalized}@company.com`,
-      employeeId,
-      avatar: `https://i.pravatar.cc/120?u=${encodeURIComponent(fullName)}`,
-    };
-  });
-
-  const detectBulkIdentifierType = (value: string): BulkIdentifierType => {
-    const trimmed = value.trim();
-    if (/\S+@\S+\.\S+/.test(trimmed)) return 'email';
-    if (/^[a-z]{0,3}\d{3,}$/i.test(trimmed) || /^\d{4,}$/.test(trimmed)) return 'employee_id';
-    return 'name';
-  };
-
-  const findMatchedPerson = (value: string, identifierType: BulkIdentifierType) => {
-    const normalized = value.trim().toLowerCase();
-    if (!normalized) return null;
-    if (identifierType === 'email') {
-      return bulkDirectory.find((p) => p.email.toLowerCase() === normalized) ?? null;
-    }
-    if (identifierType === 'employee_id') {
-      return bulkDirectory.find((p) => p.employeeId.toLowerCase() === normalized) ?? null;
-    }
-    return (
-      bulkDirectory.find((p) => p.fullName.toLowerCase() === normalized) ??
-      bulkDirectory.find((p) => p.fullName.toLowerCase().includes(normalized)) ??
-      null
-    );
-  };
-
   const bulkImportIdentifierLabel = (() => {
     const types = new Set(bulkImportRows.map((r) => r.identifierType));
     if (types.size === 1) {
@@ -463,7 +413,7 @@ export default function App() {
       .filter(Boolean);
     const rows = parsed.map((token) => {
       const identifierType = detectBulkIdentifierType(token);
-      const matched = findMatchedPerson(token, identifierType);
+      const matched = findMatchedPerson(bulkDirectory, token, identifierType);
       return {
         id: newBulkImportRowId(),
         original: token,
@@ -488,7 +438,7 @@ export default function App() {
     const parsed = csvSeed.split(/[\n,]+/).map((token) => token.trim()).filter(Boolean);
     const rows = parsed.map((token) => {
       const identifierType = detectBulkIdentifierType(token);
-      const matched = findMatchedPerson(token, identifierType);
+      const matched = findMatchedPerson(bulkDirectory, token, identifierType);
       return {
         id: newBulkImportRowId(),
         original: token,
@@ -1082,10 +1032,7 @@ export default function App() {
                         : 'bg-[#4A67A1]'
                 }`}
               >
-                {snackbarTone === 'success' && <Check className="w-4 h-4 text-white" />}
-                {snackbarTone === 'warning' && <AlertCircle className="w-4 h-4 text-white" />}
-                {snackbarTone === 'error' && <AlertCircle className="w-4 h-4 text-white" />}
-                {snackbarTone === 'info' && <Info className="w-4 h-4 text-white" />}
+                <SnackbarToneIcon tone={snackbarTone} className="w-4 h-4 text-white" />
               </div>
               <span
                 className={`font-semibold text-sm leading-snug truncate ${
@@ -2442,7 +2389,10 @@ export default function App() {
             className="fixed inset-0 z-[180] bg-black/40"
             onClick={() => setIsBulkAddOpen(false)}
           >
-            <motion.div 
+            <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bulk-add-individuals-title"
             initial={{ opacity: 0, x: '100%' }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: '100%' }}
@@ -2452,7 +2402,9 @@ export default function App() {
           >
             {/* Bulk Add Header */}
             <div className="px-8 py-6 flex items-center justify-between border-b border-gray-100">
-              <h2 className="text-2xl font-semibold text-gray-900">Bulk add individuals</h2>
+              <h2 id="bulk-add-individuals-title" className="text-2xl font-semibold text-gray-900">
+                Bulk add individuals
+              </h2>
               <button 
                 onClick={() => setIsBulkAddOpen(false)}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -2636,8 +2588,8 @@ export default function App() {
                                 <td className="px-4 py-3">
                                   <div className="flex items-center justify-end gap-2">
                                   {duplicateMatched && (
-                                    <div className="relative group/dup-warning">
-                                      <AlertCircle className="h-4 w-4 text-amber-500" />
+                                    <div className="relative group/dup-warning" data-bulk-warning="true">
+                                      <AlertCircle className="h-4 w-4 text-amber-500" aria-hidden />
                                       <div className="invisible absolute bottom-full right-0 z-[280] mb-2 w-64 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 opacity-0 shadow-lg transition-all group-hover/dup-warning:visible group-hover/dup-warning:opacity-100">
                                         This person has been matched with a different address in the table.
                                       </div>
