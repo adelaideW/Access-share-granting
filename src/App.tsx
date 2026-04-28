@@ -325,7 +325,7 @@ export default function App() {
   const [isEmailComposerOpen, setIsEmailComposerOpen] = useState(false);
   const [emailRecipientIds, setEmailRecipientIds] = useState<Set<string>>(new Set());
   const [emailComposerTab, setEmailComposerTab] = useState<'edit' | 'preview'>('edit');
-  const [emailSubject, setEmailSubject] = useState('Action required for documents');
+  const [emailSubject, setEmailSubject] = useState('Harry Porter shared document with you');
   const [emailCustomMessage, setEmailCustomMessage] = useState('');
   
   const [people, setPeople] = useState<Person[]>([
@@ -684,8 +684,9 @@ export default function App() {
     const all = new Set(people.map((p) => p.id));
     setEmailRecipientIds(all);
     setEmailComposerTab('edit');
-    setEmailSubject('Action required for documents');
-    setEmailCustomMessage('Please review and send the documents\n• {Document names}');
+    const ownerName = people.find((p) => p.role === 'Owner')?.names[0] ?? 'Harry Porter';
+    setEmailSubject(`${ownerName} shared document with you`);
+    setEmailCustomMessage('{Username} shared {filename} with you, you can now ');
     setIsEmailComposerOpen(true);
   };
 
@@ -872,11 +873,11 @@ export default function App() {
                 })}
               </div>
               <div className="space-y-3">
-                <div className="grid max-w-[270px] grid-cols-2 rounded-2xl border border-gray-300 p-0.5">
+                <div className="grid h-10 max-w-[270px] grid-cols-2 rounded-lg border border-gray-300 p-0.5">
                   <button
                     type="button"
                     onClick={() => setEmailComposerTab('edit')}
-                    className={`rounded-xl py-2 text-base font-semibold transition-colors ${
+                    className={`rounded-md text-sm font-normal transition-colors ${
                       emailComposerTab === 'edit'
                         ? 'bg-[#8b0069] text-white'
                         : 'text-gray-800 hover:bg-gray-50'
@@ -887,7 +888,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setEmailComposerTab('preview')}
-                    className={`rounded-xl py-2 text-base font-semibold transition-colors ${
+                    className={`rounded-md text-sm font-normal transition-colors ${
                       emailComposerTab === 'preview'
                         ? 'bg-[#8b0069] text-white'
                         : 'text-gray-800 hover:bg-gray-50'
@@ -904,7 +905,7 @@ export default function App() {
                   <input
                     value={emailSubject}
                     onChange={(e) => setEmailSubject(e.target.value)}
-                    className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-[18px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#7A005D]/25 focus:border-[#7A005D]"
+                    className="h-11 w-full rounded-lg border border-gray-300 px-4 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#7A005D]/25 focus:border-[#7A005D]"
                   />
                 </div>
 
@@ -912,8 +913,8 @@ export default function App() {
                   <label className="text-[14px] font-semibold text-gray-900">
                     Body<span className="text-red-500">*</span>
                   </label>
-                  <div className="rounded-2xl border border-gray-300 overflow-hidden">
-                  <div className="flex flex-wrap items-center gap-2 border-b border-gray-300 px-4 py-3 text-lg text-gray-700">
+                  <div className="rounded-lg border border-gray-300 overflow-hidden">
+                  <div className="flex flex-wrap items-center gap-2 border-b border-gray-300 px-4 py-2.5 text-base text-gray-700">
                     <button type="button" className="hover:text-gray-900">↩</button>
                     <button type="button" className="hover:text-gray-900">↪</button>
                     <span className="text-gray-300">|</span>
@@ -926,19 +927,28 @@ export default function App() {
                     <button type="button" className="text-sm px-2 py-1 rounded-lg border border-gray-300 bg-white">15</button>
                     <button type="button" className="hover:text-gray-900">+</button>
                     <span className="text-gray-300">|</span>
-                    <button type="button" className="ml-auto text-sm px-4 py-1.5 rounded-2xl border border-gray-300 bg-white text-gray-700">⚡ Insert variable</button>
+                    <button type="button" className="ml-auto text-sm px-4 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700">⚡ Insert variable</button>
                   </div>
 
-                  <div className="min-h-[220px] p-6 text-[18px] text-gray-800">
+                  <div className="min-h-[220px] p-6 text-sm text-gray-800">
                     {emailComposerTab === 'preview' ? (
-                      <div className="whitespace-pre-line leading-relaxed">{emailCustomMessage}</div>
+                      <div className="leading-relaxed">
+                        <span>{emailCustomMessage}</span>
+                        <span className="ml-2 inline-flex items-center overflow-hidden rounded-md border border-gray-400 align-middle bg-white">
+                          <span className="px-1.5 py-0.5 text-[12px] text-gray-700">[x]</span>
+                          <span className="border-l border-r border-gray-300 px-2 py-0.5 text-[12px] text-gray-900">Access type</span>
+                          <span className="px-1.5 py-0.5 text-[16px] leading-none text-gray-700">×</span>
+                        </span>
+                      </div>
                     ) : (
-                      <textarea
-                        value={emailCustomMessage}
-                        onChange={(e) => setEmailCustomMessage(e.target.value)}
-                        rows={6}
-                        className="w-full resize-none bg-transparent text-[18px] leading-relaxed text-gray-800 outline-none"
-                      />
+                      <div className="leading-relaxed">
+                        <span>{emailCustomMessage}</span>
+                        <span className="ml-2 inline-flex items-center overflow-hidden rounded-md border border-gray-400 align-middle bg-white">
+                          <span className="px-1.5 py-0.5 text-[12px] text-gray-700">[x]</span>
+                          <span className="border-l border-r border-gray-300 px-2 py-0.5 text-[12px] text-gray-900">Access type</span>
+                          <span className="px-1.5 py-0.5 text-[16px] leading-none text-gray-700">×</span>
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
