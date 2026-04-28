@@ -18,14 +18,10 @@ import {
   Building2,
   Check,
   ArrowLeft,
-  ArrowLeftRight,
   HelpCircle,
-  Settings,
   ChevronRight,
   CheckCircle2,
   Trash2,
-  AlertCircle,
-  Search,
   ChevronLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -35,7 +31,6 @@ type AccessLevel =
   | 'Owner'
   | 'Editor'
   | 'Collaborator'
-  | 'Viewer'
   | 'View as owner'
   | 'View as viewer'
   | 'Explore as owner';
@@ -193,18 +188,17 @@ const ACCESS_GROUPS_ORDER: AccessLevel[] = [
   'Owner',
   'Editor',
   'Collaborator',
-  'Viewer',
   'View as owner',
   'View as viewer',
   'Explore as owner',
 ];
 
-/** Buckets for Choose recipients: merges Viewer + View as viewer → single Viewer group */
+/** Buckets for Choose recipients */
 type EmailComposerBucket =
   | 'Owner'
   | 'Editor'
   | 'Collaborator'
-  | 'Viewer'
+  | 'View as viewer'
   | 'View as owner'
   | 'Explore as owner';
 
@@ -212,13 +206,13 @@ const EMAIL_COMPOSER_BUCKET_ORDER: EmailComposerBucket[] = [
   'Owner',
   'Editor',
   'Collaborator',
-  'Viewer',
+  'View as viewer',
   'View as owner',
   'Explore as owner',
 ];
 
 function emailComposerBucket(role: AccessLevel): EmailComposerBucket {
-  if (role === 'Viewer' || role === 'View as viewer') return 'Viewer';
+  if (role === 'View as viewer') return 'View as viewer';
   return role as EmailComposerBucket;
 }
 
@@ -241,8 +235,6 @@ function generalAccessSubtitle(
         return `${atCompany} with the link can edit.`;
       case 'Collaborator':
         return `${atCompany} with the link can collaborate.`;
-      case 'Viewer':
-        return `${atCompany} can find and open with the link.`;
       case 'View as owner':
         return `${atCompany} with the link opens in view mode as owner.`;
       case 'View as viewer':
@@ -250,7 +242,7 @@ function generalAccessSubtitle(
       case 'Explore as owner':
         return `${atCompany} with the link can explore as owner.`;
       default:
-        return `${atCompany} can find and open with the link.`;
+        return `${atCompany} with the link can collaborate.`;
     }
   }
   switch (linkRole) {
@@ -260,8 +252,6 @@ function generalAccessSubtitle(
       return 'Anyone on the internet with the link can edit.';
     case 'Collaborator':
       return 'Anyone on the internet with the link can collaborate.';
-    case 'Viewer':
-      return 'Anyone on the internet with the link can view.';
     case 'View as owner':
       return 'Anyone on the internet with the link views as owner.';
     case 'View as viewer':
@@ -269,7 +259,7 @@ function generalAccessSubtitle(
     case 'Explore as owner':
       return 'Anyone on the internet with the link can explore as owner.';
     default:
-      return 'Anyone on the internet with the link can view.';
+      return 'Anyone on the internet with the link can collaborate.';
   }
 }
 
@@ -312,7 +302,9 @@ export default function App() {
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
-  const [isPreviewAccessOpen, setIsPreviewAccessOpen] = useState(false);
+  const [previewDrawer, setPreviewDrawer] = useState<{ mode: 'all' | 'row'; personId?: string } | null>(null);
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [pendingTransferPersonId, setPendingTransferPersonId] = useState<string | null>(null);
   const snackbarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = (message: string) => {
@@ -323,7 +315,6 @@ export default function App() {
       snackbarTimerRef.current = null;
     }, 3000);
   };
-  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [activeAccessDropdown, setActiveAccessDropdown] = useState<string | null>(null);
   const [transferTarget, setTransferTarget] = useState('');
   const [checkedRows, setCheckedRows] = useState<Set<string>>(new Set(['1']));
@@ -337,10 +328,6 @@ export default function App() {
     { id: '1', names: ['Harry Porter'], role: 'Owner', isGroup: false, title: 'CEO', department: 'Leadership', avatar: 'https://i.pravatar.cc/150?u=harry' }
   ]);
 
-  const [transferSearch, setTransferSearch] = useState('');
-  const [isTransferSearchOpen, setIsTransferSearchOpen] = useState(false);
-  const [selectedTransferPerson, setSelectedTransferPerson] = useState<string | null>(null);
-
   const transferSearchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -352,40 +339,15 @@ export default function App() {
 
   const [calendarOpenPersonId, setCalendarOpenPersonId] = useState<string | null>(null);
 
-  const isOnlyOwner = people.length === 1 && people[0].role === 'Owner';
-
   // Component for tags cell with overflow detection
-  const TagsCell = ({ names, role }: { names: string[], role: string }) => {
+  const TagsCell = ({ names }: { names: string[] }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const measureRef = useRef<HTMLDivElement>(null);
     const [visibleCount, setVisibleCount] = useState(1);
-    const isOwner = role === 'Owner';
-
-    const pillIconStrip = (
-      <div className="flex w-[52px] shrink-0 items-center justify-end gap-0.5 pl-0.5">
-        <div className="flex gap-0.5 opacity-0 transition-opacity pointer-events-none group-hover/pill:pointer-events-auto group-hover/pill:opacity-100">
-          <button
-            type="button"
-            className="rounded p-0.5 text-gray-500 hover:bg-gray-200/80 hover:text-gray-800"
-            aria-label="Edit recipients for this group"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            className="rounded p-0.5 text-gray-500 hover:bg-gray-200/80 hover:text-gray-800"
-            aria-label="Preview as this group"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Eye className="h-3.5 w-3.5" strokeWidth={2} />
-          </button>
-        </div>
-      </div>
-    );
+    const isSingle = names.length <= 1;
 
     useLayoutEffect(() => {
-      if (isOwner || !measureRef.current || !containerRef.current) return;
+      if (isSingle || !measureRef.current || !containerRef.current) return;
 
       const calculateVisible = () => {
         if (!measureRef.current || !containerRef.current) return;
@@ -430,10 +392,10 @@ export default function App() {
       calculateVisible();
 
       return () => observer.disconnect();
-    }, [isOwner, names]);
+    }, [isSingle, names]);
 
-    const displayNames = isOwner ? names : names.slice(0, visibleCount);
-    const remainingCount = isOwner ? 0 : names.length - visibleCount;
+    const displayNames = isSingle ? names : names.slice(0, visibleCount);
+    const remainingCount = isSingle ? 0 : names.length - visibleCount;
 
     const measureTag = (name: string, idx: number) => (
       <div
@@ -442,14 +404,13 @@ export default function App() {
       >
         <Users className="h-4 w-4 shrink-0 text-gray-400" />
         <span className="max-w-none whitespace-nowrap text-gray-700">{name}</span>
-        <div className="flex w-[52px] shrink-0 justify-end" />
       </div>
     );
 
     return (
       <div className="relative group/tags-cell w-full flex items-center min-h-[30px]" ref={containerRef}>
         {/* Hidden measuring container */}
-        {!isOwner && (
+        {!isSingle && (
           <div 
             ref={measureRef} 
             className="absolute opacity-0 pointer-events-none flex items-center gap-2 flex-nowrap whitespace-nowrap"
@@ -463,15 +424,14 @@ export default function App() {
           {displayNames.map((name, idx) => (
             <div
               key={idx}
-              className={`group/pill relative flex min-w-0 items-center gap-1.5 rounded-md border border-gray-200 bg-gray-100 py-1 pl-2 pr-1 ${!isOwner ? 'shrink-0' : ''}`}
+              className={`relative flex min-w-0 items-center gap-1.5 rounded-md border border-gray-200 bg-gray-100 px-2 py-1 ${!isSingle ? 'shrink-0' : ''}`}
             >
               <Users className="h-4 w-4 shrink-0 text-gray-400" />
               <span
-                className={`min-w-0 flex-1 text-sm text-gray-700 ${!isOwner ? 'truncate' : ''}`}
+                className={`min-w-0 flex-1 text-sm text-gray-700 ${!isSingle ? 'truncate' : ''}`}
               >
                 {name}
               </span>
-              {pillIconStrip}
             </div>
           ))}
           {remainingCount > 0 && (
@@ -482,7 +442,7 @@ export default function App() {
         </div>
         
         {/* Tooltip for all tags - only for non-owners when multiple names exist */}
-        {!isOwner && names.length > 1 && (
+        {!isSingle && names.length > 1 && (
           <>
             <div className="pointer-events-none absolute inset-0 z-10 cursor-help" aria-hidden />
             <div className="absolute left-0 bottom-full mb-2 p-4 bg-[#111827] text-white rounded-2xl opacity-0 invisible group-hover/tags-cell:opacity-100 group-hover/tags-cell:visible transition-all z-50 w-80 shadow-2xl border border-white/10 pointer-events-none">
@@ -502,42 +462,31 @@ export default function App() {
     );
   };
 
-  const handleConfirmTransfer = () => {
-    if (!selectedTransferPerson) return;
+  const removeNameFromPerson = (id: string, name: string) => {
+    setPeople((prev) =>
+      prev.flatMap((p) => {
+        if (p.id !== id) return [p];
+        const nextNames = p.names.filter((n) => n !== name);
+        if (nextNames.length === 0) return [];
+        return [{ ...p, names: nextNames }];
+      })
+    );
+  };
 
+  const transferOwnershipTo = (targetId: string) => {
     setPeople((prev) => {
       const ownerIdx = prev.findIndex((p) => p.role === 'Owner');
-      if (ownerIdx === -1) return prev;
-
-      const targetPerson =
-        prev.find((p) => p.names[0] === selectedTransferPerson) ??
-        availablePeople.find((p) => p.names[0] === selectedTransferPerson);
-
-      if (!targetPerson || targetPerson.role === 'Owner') return prev;
-
-      const oldOwner = prev[ownerIdx];
-      const oldOwnerAsEditor: Person = { ...oldOwner, role: 'Editor' };
-      const newOwnerRow: Person = { ...targetPerson, role: 'Owner' };
-
-      const others = prev.filter(
-        (p) => p.id !== oldOwner.id && p.id !== targetPerson.id
-      );
-
-      return [newOwnerRow, oldOwnerAsEditor, ...others];
+      const targetIdx = prev.findIndex((p) => p.id === targetId);
+      if (ownerIdx === -1 || targetIdx === -1) return prev;
+      const target = prev[targetIdx];
+      if (target.isGroup || target.role === 'Owner') return prev;
+      const owner = prev[ownerIdx];
+      const ownerAsEditor: Person = { ...owner, role: 'Editor' };
+      const targetAsOwner: Person = { ...target, role: 'Owner' };
+      const others = prev.filter((p) => p.id !== owner.id && p.id !== target.id);
+      return [targetAsOwner, ownerAsEditor, ...others];
     });
-
-    setCheckedRows((prev) => {
-      const next = new Set(prev);
-      const t =
-        people.find((p) => p.names[0] === selectedTransferPerson) ??
-        availablePeople.find((p) => p.names[0] === selectedTransferPerson);
-      if (t) next.add(t.id);
-      return next;
-    });
-
-    setIsTransferModalOpen(false);
-    setTransferSearch('');
-    setSelectedTransferPerson(null);
+    setPendingTransferPersonId(null);
     showToast('Transfer complete');
   };
 
@@ -565,22 +514,22 @@ export default function App() {
   };
 
   const [availablePeople] = useState<Person[]>([
-    { id: '4', names: ['Brett Rios'], role: 'Viewer', isGroup: false, title: 'Software Engineer', department: 'Engineering', avatar: 'https://i.pravatar.cc/150?u=brett' },
-    { id: '5', names: ['Erika Rodriguez'], role: 'Viewer', isGroup: false, title: 'Account Executive', department: 'Enterprise', avatar: 'https://i.pravatar.cc/150?u=erika' },
-    { id: '6', names: ['Gail Richardson'], role: 'Viewer', isGroup: false, title: 'Account Executive', department: 'Mid-market', avatar: 'https://i.pravatar.cc/150?u=gail' },
-    { id: '7', names: ['Alfred Rivera'], role: 'Viewer', isGroup: false, title: 'Account Executive', department: 'SMB', avatar: 'https://i.pravatar.cc/150?u=alfred' }
+    { id: '4', names: ['Brett Rios'], role: 'View as viewer', isGroup: false, title: 'Software Engineer', department: 'Engineering', avatar: 'https://i.pravatar.cc/150?u=brett' },
+    { id: '5', names: ['Erika Rodriguez'], role: 'View as viewer', isGroup: false, title: 'Account Executive', department: 'Enterprise', avatar: 'https://i.pravatar.cc/150?u=erika' },
+    { id: '6', names: ['Gail Richardson'], role: 'View as viewer', isGroup: false, title: 'Account Executive', department: 'Mid-market', avatar: 'https://i.pravatar.cc/150?u=gail' },
+    { id: '7', names: ['Alfred Rivera'], role: 'View as viewer', isGroup: false, title: 'Account Executive', department: 'SMB', avatar: 'https://i.pravatar.cc/150?u=alfred' }
   ]);
 
   // Fake people for search in Advanced 2 mode
   const [searchablePeople] = useState<Person[]>([
     { id: 's1', names: ['Sarah Johnson'], role: 'Editor', isGroup: false, title: 'Product Manager', department: 'Product', avatar: 'https://i.pravatar.cc/150?u=sarah' },
-    { id: 's2', names: ['Michael Chen'], role: 'Viewer', isGroup: false, title: 'Designer', department: 'Design', avatar: 'https://i.pravatar.cc/150?u=michael' },
+    { id: 's2', names: ['Michael Chen'], role: 'View as viewer', isGroup: false, title: 'Designer', department: 'Design', avatar: 'https://i.pravatar.cc/150?u=michael' },
     { id: 's3', names: ['Jessica Williams'], role: 'Collaborator', isGroup: false, title: 'Data Analyst', department: 'Analytics', avatar: 'https://i.pravatar.cc/150?u=jessica' },
-    { id: 's4', names: ['David Brown'], role: 'Viewer', isGroup: false, title: 'Marketing Manager', department: 'Marketing', avatar: 'https://i.pravatar.cc/150?u=david' },
+    { id: 's4', names: ['David Brown'], role: 'View as viewer', isGroup: false, title: 'Marketing Manager', department: 'Marketing', avatar: 'https://i.pravatar.cc/150?u=david' },
     { id: 's5', names: ['Emily Davis'], role: 'Editor', isGroup: false, title: 'DevOps Engineer', department: 'Engineering', avatar: 'https://i.pravatar.cc/150?u=emily' },
-    { id: 's6', names: ['James Martinez'], role: 'Viewer', isGroup: false, title: 'Sales Representative', department: 'Sales', avatar: 'https://i.pravatar.cc/150?u=james' },
+    { id: 's6', names: ['James Martinez'], role: 'View as viewer', isGroup: false, title: 'Sales Representative', department: 'Sales', avatar: 'https://i.pravatar.cc/150?u=james' },
     { id: 's7', names: ['Maria Garcia'], role: 'Collaborator', isGroup: false, title: 'HR Manager', department: 'Human Resources', avatar: 'https://i.pravatar.cc/150?u=maria' },
-    { id: 's8', names: ['Robert Taylor'], role: 'Viewer', isGroup: false, title: 'Financial Analyst', department: 'Finance', avatar: 'https://i.pravatar.cc/150?u=robert' }
+    { id: 's8', names: ['Robert Taylor'], role: 'View as viewer', isGroup: false, title: 'Financial Analyst', department: 'Finance', avatar: 'https://i.pravatar.cc/150?u=robert' }
   ]);
 
   const handleAddPeople = () => {
@@ -611,7 +560,7 @@ export default function App() {
       const newEntry: Person = {
         id: Math.random().toString(36).substr(2, 9),
         names: [...selectedChips],
-        role: 'Viewer',
+        role: 'View as viewer',
         isGroup: true
       };
       setPeople([...people, newEntry]);
@@ -651,7 +600,7 @@ export default function App() {
         setActiveAccessDropdown(null);
       }
       if (transferSearchRef.current && !transferSearchRef.current.contains(event.target as Node)) {
-        setIsTransferSearchOpen(false);
+        setEditingRowId(null);
       }
       if (
         generalScopeDropdownRef.current &&
@@ -743,6 +692,32 @@ export default function App() {
     setIsEmailComposerOpen(false);
     showToast(`Message will be sent to ${emailRecipientIds.size} recipient(s)`);
   };
+
+  const fakeRoster = [
+    { username: 'Avery Lee', role: 'Product Manager' },
+    { username: 'Noah Kim', role: 'Software Engineer' },
+    { username: 'Riley Patel', role: 'Data Analyst' },
+    { username: 'Jordan Smith', role: 'Designer' },
+    { username: 'Taylor Nguyen', role: 'Operations' },
+    { username: 'Skyler Brown', role: 'Legal' },
+    { username: 'Casey Johnson', role: 'Sales' },
+    { username: 'Morgan Davis', role: 'Finance' },
+  ];
+
+  const previewRows = (() => {
+    if (!previewDrawer) return [] as { username: string; role: string; accessType: AccessLevel }[];
+    const targetPerson =
+      previewDrawer.mode === 'row'
+        ? people.find((p) => p.id === previewDrawer.personId)
+        : null;
+    const accessType = targetPerson?.role ?? generalLinkAccessRole;
+    const count = previewDrawer.mode === 'row' ? 5 : 8;
+    return fakeRoster.slice(0, count).map((entry) => ({
+      username: entry.username,
+      role: entry.role,
+      accessType,
+    }));
+  })();
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4 font-sans relative overflow-auto">
@@ -1186,7 +1161,7 @@ export default function App() {
               <div className="relative group/tooltip">
                 <button
                   type="button"
-                  onClick={() => setIsPreviewAccessOpen(true)}
+                  onClick={() => setPreviewDrawer({ mode: 'all' })}
                   aria-label="Preview all with access"
                   className="text-gray-600 hover:text-gray-900"
                 >
@@ -1220,8 +1195,66 @@ export default function App() {
               <div key={person.id} className={`grid ${gridCols} px-4 py-4 items-center hover:bg-gray-50 transition-colors group/row relative`}>
                 <div className="flex min-w-0 w-full items-center">
                   <div className="min-w-0 flex-1 overflow-hidden">
-                    <TagsCell names={person.names} role={person.role} />
+                    <TagsCell names={person.names} />
                   </div>
+                  <div className="relative ml-2 flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover/row:opacity-100">
+                    <div className="relative group/row-edit">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingRowId((cur) => (cur === person.id ? null : person.id))
+                        }
+                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                        aria-label="Edit groups in this row"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <div className="invisible absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all group-hover/row-edit:visible group-hover/row-edit:opacity-100">
+                        Edit
+                      </div>
+                    </div>
+                    <div className="relative group/row-preview">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewDrawer({ mode: 'row', personId: person.id })}
+                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                        aria-label="Preview people included in this row"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <div className="invisible absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all group-hover/row-preview:visible group-hover/row-preview:opacity-100">
+                        Preview
+                      </div>
+                    </div>
+                  </div>
+                  {editingRowId === person.id && (
+                    <div
+                      ref={transferSearchRef}
+                      className="absolute left-4 top-full z-[80] mt-2 w-[320px] rounded-xl border border-gray-200 bg-white p-3 shadow-2xl"
+                    >
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Remove group/person from this row
+                      </div>
+                      <div className="space-y-1.5">
+                        {person.names.map((name) => (
+                          <div
+                            key={name}
+                            className="flex items-center justify-between rounded-lg border border-gray-200 px-2 py-1.5"
+                          >
+                            <span className="truncate text-sm text-gray-800">{name}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeNameFromPerson(person.id, name)}
+                              className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-600"
+                              aria-label={`Remove ${name}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 {viewMode === 'advanced' && (
@@ -1323,30 +1356,15 @@ export default function App() {
                                 <span>Explore as owner</span>
                                 {person.role === 'Explore as owner' && <CheckCircle2 className="w-4 h-4 text-[#7A005D] shrink-0" />}
                               </button>
-                              <button 
-                                type="button"
-                                onClick={() => updateRole(person.id, 'Viewer')}
-                                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors group"
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-sm font-medium text-gray-900">Viewer</span>
-                                  {person.role === 'Viewer' && <CheckCircle2 className="w-4 h-4 text-[#7A005D] shrink-0" />}
-                                </div>
-                              </button>
-
                               <div className="border-t border-gray-100 my-2"></div>
-                              {person.role === 'Owner' && !person.isGroup && (
+                              {person.role !== 'Owner' && !person.isGroup && (
                                 <button 
                                   type="button"
                                   onClick={() => {
-                                    if (!isOnlyOwner) {
-                                      setIsTransferModalOpen(true);
-                                      setActiveAccessDropdown(null);
-                                    }
+                                    setPendingTransferPersonId(person.id);
+                                    setActiveAccessDropdown(null);
                                   }}
-                                  className={`w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-900 font-medium ${
-                                    isOnlyOwner ? 'opacity-50 cursor-not-allowed' : ''
-                                  }`}
+                                  className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-900 font-medium"
                                 >
                                   Transfer ownership
                                 </button>
@@ -1400,16 +1418,22 @@ export default function App() {
                         >
                           {formatExpirationDisplay(person.expirationDate)}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPersonExpiration(person.id, null);
-                            setCalendarOpenPersonId(null);
-                          }}
-                          className="shrink-0 font-semibold text-[#7A005D] hover:underline"
-                        >
-                          Remove
-                        </button>
+                        <div className="relative group/remove-expiry">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPersonExpiration(person.id, null);
+                              setCalendarOpenPersonId(null);
+                            }}
+                            className="shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-[#7A005D]"
+                            aria-label="Remove expiration"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                          <div className="invisible absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all group-hover/remove-expiry:visible group-hover/remove-expiry:opacity-100">
+                            Remove
+                          </div>
+                        </div>
                         {calendarOpenPersonId === person.id && (
                           <div
                             ref={expirationCalendarPopoverRef}
@@ -1426,26 +1450,6 @@ export default function App() {
                     )}
                   </div>
                 <div className="flex items-center justify-center w-8 shrink-0 self-start pt-1">
-                    {person.role === 'Owner' && viewMode !== 'advanced2' && (
-                      <div className="relative group/swap-tooltip">
-                        <button 
-                          onClick={() => !isOnlyOwner && setIsTransferModalOpen(true)}
-                          className={`p-1 rounded transition-colors ${
-                            isOnlyOwner 
-                            ? 'text-gray-200 cursor-not-allowed' 
-                            : 'text-gray-400 cursor-pointer hover:bg-gray-100 hover:text-gray-600'
-                          }`}
-                        >
-                          <ArrowLeftRight className="w-4 h-4" />
-                        </button>
-                        <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-100 text-gray-900 text-xs font-medium rounded-xl opacity-0 invisible group-hover/swap-tooltip:opacity-100 group-hover/swap-tooltip:visible transition-all w-fit whitespace-nowrap shadow-lg border border-gray-200 z-50 leading-relaxed">
-                          {isOnlyOwner 
-                            ? "Share with more people or groups to transfer ownership."
-                            : "transfer ownership"
-                          }
-                        </div>
-                      </div>
-                    )}
                     {person.role !== 'Owner' && viewMode !== 'advanced2' && (
                       <div className="relative group/delete-tooltip">
                         <button 
@@ -1472,7 +1476,7 @@ export default function App() {
             <h2 className="text-base font-semibold text-gray-900 mb-3">General access</h2>
             <div
               ref={generalScopeDropdownRef}
-              className="border border-gray-200 rounded-xl bg-[#f8f9fa] overflow-visible"
+              className="border border-gray-200 rounded-xl bg-white overflow-visible"
             >
               <div className="flex items-stretch gap-3 p-3 min-w-0">
                 <div
@@ -1496,13 +1500,14 @@ export default function App() {
                 </div>
                 <div className="flex-1 flex items-center gap-2 min-w-0">
                   <div className="flex-1 min-w-0 relative">
+                    <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Scope</div>
                     <button
                       type="button"
                       onClick={() => {
                         setGeneralScopeDropdownOpen((o) => !o);
                         setGeneralRoleDropdownOpen(false);
                       }}
-                      className="w-full text-left rounded-lg px-0 py-0.5 hover:opacity-90 transition-opacity"
+                      className="w-full text-left rounded-lg border border-gray-300 px-3 py-2 hover:border-[#1a73e8] transition-colors"
                     >
                       <div className="flex items-start justify-between gap-1 min-w-0">
                         <div className="min-w-0 flex-1 pr-1">
@@ -1532,16 +1537,22 @@ export default function App() {
                                 >
                                   {formatExpirationDisplay(generalLinkExpirationIso)}
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setGeneralLinkExpirationIso(null);
-                                    setCalendarGeneralLinkOpen(false);
-                                  }}
-                                  className="font-semibold text-[#7A005D] hover:underline"
-                                >
-                                  Remove
-                                </button>
+                                <div className="relative group/general-exp-remove">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setGeneralLinkExpirationIso(null);
+                                      setCalendarGeneralLinkOpen(false);
+                                    }}
+                                    className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-[#7A005D]"
+                                    aria-label="Remove expiration"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                  <div className="invisible absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all group-hover/general-exp-remove:visible group-hover/general-exp-remove:opacity-100">
+                                    Remove
+                                  </div>
+                                </div>
                                 {calendarGeneralLinkOpen && (
                                   <div
                                     ref={generalExpirationCalendarPopoverRef}
@@ -1605,6 +1616,7 @@ export default function App() {
 
                   {(generalAccessScope === 'company' || generalAccessScope === 'anyone_link') && (
                     <div ref={generalRoleDropdownRef} className="relative shrink-0 self-start">
+                      <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Access type</div>
                       <button
                         type="button"
                         onClick={() => {
@@ -1709,22 +1721,6 @@ export default function App() {
                                   <CheckCircle2 className="h-4 w-4 shrink-0 text-[#7A005D]" />
                                 )}
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setGeneralLinkAccessRole('Viewer');
-                                  setGeneralRoleDropdownOpen(false);
-                                }}
-                                className="group w-full px-4 py-3 text-left transition-colors hover:bg-gray-50"
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-sm font-medium text-gray-900">Viewer</span>
-                                  {generalLinkAccessRole === 'Viewer' && (
-                                    <CheckCircle2 className="h-4 w-4 shrink-0 text-[#7A005D]" />
-                                  )}
-                                </div>
-                              </button>
-
                               <div className="my-2 border-t border-gray-100" />
 
                               <button
@@ -1847,153 +1843,37 @@ export default function App() {
 
       {/* Transfer Ownership Modal */}
       <AnimatePresence>
-        {isTransferModalOpen && (
+        {pendingTransferPersonId && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4 overflow-y-auto">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-[32px] shadow-2xl w-full max-w-2xl my-auto"
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-xl my-auto"
             >
-              <div className="px-8 pt-8 pb-4">
-                <h2 className="text-[28px] font-bold text-gray-900">Transfer Ownership?</h2>
+              <div className="px-8 pt-8 pb-3">
+                <h2 className="text-2xl font-bold text-gray-900">Transfer ownership?</h2>
               </div>
-
               <div className="px-8 pb-8">
-                {/* Warning Box */}
-                <div className="bg-[#FFEDC2] rounded-2xl p-6 flex gap-4 mb-6">
-                  <div className="bg-[#141414] rounded-full p-1.5 h-fit mt-0.5">
-                    <AlertCircle className="w-4 h-4 text-white" />
-                  </div>
-                  <p className="text-[#141414] text-[15px] leading-relaxed">
-                    Once the ownership is transferred only the new owner can transfer it again. The new owner will be notified and may remove your access. You may also lose permission to manage sharing settings.
-                  </p>
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-[15px] leading-relaxed text-amber-900">
+                  After the ownership has been transferred, the previous owner will no longer be able to transfer it again. Are you sure?
                 </div>
-
-                <p className="text-[15px] text-gray-800 mb-4">
-                  The new owner must already have access. People without access won't appear in search. People or group with access below:
-                </p>
-
-                {/* Current access chips */}
-                <div className="flex flex-wrap gap-2 mb-6">
-                  {people.filter(p => p.role !== 'Owner').flatMap(p => p.names).map(tag => (
-                    <div key={tag} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
-                      <Users className="w-4 h-4 text-gray-400" />
-                      <span>{tag}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="space-y-2 relative" ref={transferSearchRef}>
-                  <div 
-                    className={`relative flex items-center bg-white border rounded-xl px-4 py-3 transition-all ${
-                      isTransferSearchOpen ? 'border-[#3B82F6] ring-2 ring-[#3B82F6]/20' : 'border-gray-300'
-                    }`}
-                  >
-                    <input 
-                      type="text"
-                      value={transferSearch}
-                      onChange={(e) => {
-                        setTransferSearch(e.target.value);
-                        setIsTransferSearchOpen(true);
-                      }}
-                      onFocus={() => setIsTransferSearchOpen(true)}
-                      placeholder="Search employee names"
-                      className="w-full bg-transparent outline-none text-gray-800 placeholder-gray-400"
-                    />
-                    <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isTransferSearchOpen ? 'rotate-180' : ''}`} />
-                  </div>
-
-                  {/* Search Results Dropdown */}
-                  <AnimatePresence>
-                    {isTransferSearchOpen && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 5 }}
-                        className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-[400px] overflow-y-auto py-2"
-                      >
-                        {transferSearch.trim() === '' ? (
-                          <div className="px-4 py-12 text-center">
-                            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-gray-900">
-                              <Search className="w-6 h-6 text-gray-900" />
-                            </div>
-                            <p className="text-gray-900 font-medium text-base">Begin typing to see search results</p>
-                          </div>
-                        ) : (
-                          <>
-                            {[...people, ...availablePeople]
-                              .filter(p => !p.isGroup) // Strictly only individuals
-                              .filter(p => p.role !== 'Owner') // Filter out current owner
-                              .filter(p => p.names[0].toLowerCase().includes(transferSearch.toLowerCase()))
-                              .reduce((acc, current) => {
-                                // Deduplicate by name
-                                const x = acc.find(item => item.names[0] === current.names[0]);
-                                if (!x) {
-                                  return acc.concat([current]);
-                                } else {
-                                  return acc;
-                                }
-                              }, [] as Person[])
-                              .map((person) => (
-                                <button 
-                                  key={person.id}
-                                  onClick={() => {
-                                    setSelectedTransferPerson(person.names[0]);
-                                    setTransferSearch(person.names[0]);
-                                    setIsTransferSearchOpen(false);
-                                  }}
-                                  className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between group border-b border-gray-100 last:border-0"
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <img 
-                                      src={person.avatar || `https://ui-avatars.com/api/?name=${person.names[0]}&background=random`} 
-                                      alt="" 
-                                      className="w-10 h-10 rounded-full object-cover"
-                                      referrerPolicy="no-referrer"
-                                    />
-                                    <div className="flex flex-col">
-                                      <span className="text-[15px] font-medium text-gray-900">{person.names[0]}</span>
-                                      <span className="text-xs text-gray-500">{person.title}, {person.department}</span>
-                                    </div>
-                                  </div>
-                                  {selectedTransferPerson === person.names[0] && <CheckCircle2 className="w-5 h-5 text-[#7A005D]" />}
-                                </button>
-                              ))
-                            }
-                            {[...people, ...availablePeople].filter(p => !p.isGroup && p.role !== 'Owner').filter(p => p.names[0].toLowerCase().includes(transferSearch.toLowerCase())).length === 0 && (
-                              <div className="px-4 py-8 text-center">
-                                <p className="text-gray-500 text-sm">No matching people found</p>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                <div className="flex justify-end gap-3 mt-10">
+                <div className="mt-8 flex justify-end gap-3">
                   <button 
                     onClick={() => {
-                      setIsTransferModalOpen(false);
-                      setTransferSearch('');
-                      setSelectedTransferPerson(null);
+                      setPendingTransferPersonId(null);
                     }}
-                    className="px-8 py-3 border border-gray-300 text-gray-900 font-bold rounded-xl hover:bg-gray-50 transition-colors"
+                    className="px-6 py-2.5 border border-gray-300 text-gray-900 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
                   >
-                    Go back
+                    Cancel
                   </button>
                   <button 
-                    disabled={!selectedTransferPerson}
-                    onClick={handleConfirmTransfer}
-                    className={`px-8 py-3 font-bold rounded-xl transition-colors ${
-                      selectedTransferPerson 
-                      ? 'bg-[#7A005D] text-white hover:bg-[#60003D]' 
-                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    }`}
+                    onClick={() => {
+                      if (pendingTransferPersonId) transferOwnershipTo(pendingTransferPersonId);
+                    }}
+                    className="px-6 py-2.5 bg-[#7A005D] text-white font-semibold rounded-xl hover:bg-[#60003D] transition-colors"
                   >
-                    Confirm
+                    Transfer
                   </button>
                 </div>
               </div>
@@ -2002,44 +1882,61 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Preview all with access — list emails derived from names (demo) */}
+      {/* Preview drawer */}
       <AnimatePresence>
-        {isPreviewAccessOpen && (
+        {previewDrawer && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[190] bg-black/40 flex items-center justify-center p-4"
-            onClick={() => setIsPreviewAccessOpen(false)}
+            className="fixed inset-0 z-[190] bg-black/40"
+            onClick={() => setPreviewDrawer(null)}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col"
+              initial={{ opacity: 0, x: '100%' }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: '100%' }}
+              transition={{ type: 'spring', damping: 24, stiffness: 210 }}
+              className="fixed right-0 top-0 h-full w-full bg-white shadow-2xl md:max-w-5xl flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center shrink-0">
-                <h3 className="text-lg font-semibold text-gray-900">People with access</h3>
+              <div className="px-8 py-6 border-b border-gray-200 flex justify-between items-center shrink-0">
+                <h3 className="text-xl font-semibold text-gray-900">
+                  {previewDrawer.mode === 'row' ? 'Preview included people' : 'Preview all people with access'}
+                </h3>
                 <button
                   type="button"
-                  onClick={() => setIsPreviewAccessOpen(false)}
+                  onClick={() => setPreviewDrawer(null)}
                   className="p-1 hover:bg-gray-100 rounded-full transition-colors"
                   aria-label="Close preview"
                 >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
-              <div className="overflow-y-auto px-6 py-4 space-y-4">
-                {people.map((person) => (
-                  <div key={person.id} className="border-b border-gray-100 last:border-0 pb-4 last:pb-0">
-                    <div className="font-medium text-gray-900">{person.names.join(', ')}</div>
-                    <div className="text-sm text-gray-500">{person.role}</div>
-                    <div className="text-sm text-gray-700 mt-1 break-all">
-                      {emailsForPerson(person).join(', ')}
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-y-auto px-8 py-6">
+                <div className="mb-4 text-sm text-gray-600">
+                  Demo roster preview for granted access in this prototype.
+                </div>
+                <div className="overflow-hidden rounded-xl border border-gray-200">
+                  <table className="min-w-full text-left">
+                    <thead className="bg-gray-50">
+                      <tr className="text-sm font-semibold text-gray-600">
+                        <th className="px-4 py-3">Username</th>
+                        <th className="px-4 py-3">Role</th>
+                        <th className="px-4 py-3">Access type</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewRows.map((row) => (
+                        <tr key={`${row.username}-${row.role}`} className="border-t border-gray-100 text-sm text-gray-800">
+                          <td className="px-4 py-3">{row.username}</td>
+                          <td className="px-4 py-3">{row.role}</td>
+                          <td className="px-4 py-3">{row.accessType}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </motion.div>
           </motion.div>
