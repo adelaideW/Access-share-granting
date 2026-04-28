@@ -684,7 +684,8 @@ export default function App() {
     const all = new Set(people.map((p) => p.id));
     setEmailRecipientIds(all);
     setEmailComposerTab('edit');
-    setEmailSubject('{Username} shared a {artifact type}');
+    const ownerName = people.find((p) => p.role === 'Owner')?.names[0] ?? 'Harry Porter';
+    setEmailSubject(`${ownerName} shared a document`);
     setEmailCustomMessage('{Username} shared {filename} with you, you can now {access type}');
     setIsEmailComposerOpen(true);
   };
@@ -871,13 +872,13 @@ export default function App() {
                   );
                 })}
               </div>
-              <div className="space-y-3 rounded-3xl border border-gray-300 bg-white p-4">
-                <h3 className="text-2xl font-semibold text-gray-900">Add custom message</h3>
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-gray-900">Custom message</h3>
                 <div className="grid grid-cols-2 rounded-xl border border-gray-300 p-1">
                   <button
                     type="button"
                     onClick={() => setEmailComposerTab('edit')}
-                    className={`rounded-lg py-2.5 text-base font-medium transition-colors ${
+                    className={`rounded-lg py-2 text-sm font-medium transition-colors ${
                       emailComposerTab === 'edit'
                         ? 'bg-[#8b0069] text-white'
                         : 'text-gray-800 hover:bg-gray-50'
@@ -888,7 +889,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setEmailComposerTab('preview')}
-                    className={`rounded-lg py-2.5 text-base font-medium transition-colors ${
+                    className={`rounded-lg py-2 text-sm font-medium transition-colors ${
                       emailComposerTab === 'preview'
                         ? 'bg-[#8b0069] text-white'
                         : 'text-gray-800 hover:bg-gray-50'
@@ -899,18 +900,18 @@ export default function App() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[14px] font-semibold text-gray-900">
+                  <label className="text-sm font-semibold text-gray-900">
                     Subject<span className="text-red-500">*</span>
                   </label>
                   <input
                     value={emailSubject}
                     onChange={(e) => setEmailSubject(e.target.value)}
-                    className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-[24px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#7A005D]/25 focus:border-[#7A005D]"
+                    className="w-full rounded-2xl border border-gray-300 px-4 py-2.5 text-[18px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#7A005D]/25 focus:border-[#7A005D]"
                   />
                 </div>
 
                 <div className="rounded-3xl border border-gray-300 overflow-hidden">
-                  <div className="flex flex-wrap items-center gap-3 border-b border-gray-300 px-4 py-3 text-2xl text-gray-700">
+                  <div className="flex flex-wrap items-center gap-2 border-b border-gray-300 px-3 py-2 text-lg text-gray-700">
                     <button type="button" className="hover:text-gray-900">↩</button>
                     <button type="button" className="hover:text-gray-900">↪</button>
                     <span className="text-gray-300">|</span>
@@ -918,29 +919,32 @@ export default function App() {
                     <button type="button" className="italic hover:text-gray-900">I</button>
                     <button type="button" className="hover:text-gray-900">⋯</button>
                     <span className="text-gray-300">|</span>
-                    <button type="button" className="text-base px-2 py-1 rounded border border-gray-300 bg-white">Normal text</button>
+                    <button type="button" className="text-sm px-2 py-1 rounded border border-gray-300 bg-white">Normal text</button>
                     <span className="text-gray-300">|</span>
                     <button type="button" className="hover:text-gray-900">−</button>
-                    <button type="button" className="text-base px-2 py-1 rounded border border-gray-300 bg-white">15</button>
+                    <button type="button" className="text-sm px-2 py-1 rounded border border-gray-300 bg-white">15</button>
                     <button type="button" className="hover:text-gray-900">+</button>
                     <span className="text-gray-300">|</span>
-                    <button type="button" className="text-base px-3 py-1 rounded-xl border border-gray-300 bg-white">⚡ Insert variable</button>
+                    <button type="button" className="text-sm px-3 py-1 rounded-xl border border-[#d4a700] text-[#7a5d00] bg-white">⚡ Insert variable</button>
                   </div>
 
-                  <div className="min-h-[160px] p-5 text-2xl text-gray-800">
+                  <div className="min-h-[120px] p-4 text-[18px] text-gray-800">
                     {emailComposerTab === 'preview' ? (
                       <p className="leading-relaxed">
                         {'{Username} shared {filename} with you, you can now '}
-                        <span className="inline-flex align-middle rounded-xl border border-[#8b0069]/30 bg-[#fbe8f5] px-2 py-1">
-                          {'{access type}'}
+                        <span className="ml-2 inline-flex items-center overflow-hidden rounded-md border border-gray-400 align-middle bg-white">
+                          <span className="px-1.5 py-0.5 text-[12px] text-gray-700">[x]</span>
+                          <span className="border-l border-r border-gray-300 px-2 py-0.5 text-[12px] text-gray-900">Access type</span>
+                          <span className="px-1.5 py-0.5 text-[16px] leading-none text-gray-700">×</span>
                         </span>
                       </p>
                     ) : (
                       <div className="leading-relaxed">
                         <span>{'{Username} shared {filename} with you, you can now '}</span>
-                        <span className="ml-2 inline-flex flex-col rounded-xl border border-[#8b0069]/30 bg-[#fbe8f5] px-2 py-1 align-middle">
-                          <span className="text-[11px] font-semibold uppercase tracking-wide text-[#8b0069]">access type</span>
-                          <span className="text-base text-[#8b0069]">{'{access type}'}</span>
+                        <span className="ml-2 inline-flex items-center overflow-hidden rounded-md border border-gray-400 align-middle bg-white">
+                          <span className="px-1.5 py-0.5 text-[12px] text-gray-700">[x]</span>
+                          <span className="border-l border-r border-gray-300 px-2 py-0.5 text-[12px] text-gray-900">Access type</span>
+                          <span className="px-1.5 py-0.5 text-[16px] leading-none text-gray-700">×</span>
                         </span>
                       </div>
                     )}
