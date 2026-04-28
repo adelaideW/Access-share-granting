@@ -78,6 +78,14 @@ function toIsoDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Ids must be unique per row; `Date.now()` alone collides under rapid repeats and breaks React keys. */
+function newBulkImportRowId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `bulk-${crypto.randomUUID()}`;
+  }
+  return `bulk-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
 function formatExpirationDisplay(iso: string): string {
   const [y, mo, da] = iso.split('-').map(Number);
   const dt = new Date(y, mo - 1, da);
@@ -453,11 +461,11 @@ export default function App() {
       .split(/[\n,]+/)
       .map((token) => token.trim())
       .filter(Boolean);
-    const rows = parsed.map((token, idx) => {
+    const rows = parsed.map((token) => {
       const identifierType = detectBulkIdentifierType(token);
       const matched = findMatchedPerson(token, identifierType);
       return {
-        id: `${Date.now()}-${idx}`,
+        id: newBulkImportRowId(),
         original: token,
         identifierType,
         matchedPersonId: matched?.id ?? null,
@@ -478,11 +486,11 @@ export default function App() {
     ].join('\n');
     setBulkInputValue(csvSeed);
     const parsed = csvSeed.split(/[\n,]+/).map((token) => token.trim()).filter(Boolean);
-    const rows = parsed.map((token, idx) => {
+    const rows = parsed.map((token) => {
       const identifierType = detectBulkIdentifierType(token);
       const matched = findMatchedPerson(token, identifierType);
       return {
-        id: `${Date.now()}-csv-${idx}`,
+        id: newBulkImportRowId(),
         original: token,
         identifierType,
         matchedPersonId: matched?.id ?? null,
@@ -2578,6 +2586,7 @@ export default function App() {
                                     <AnimatePresence>
                                       {row.dropdownOpen && (
                                         <motion.div
+                                          key={`bulk-dd-${row.id}`}
                                           initial={{ opacity: 0, y: 6 }}
                                           animate={{ opacity: 1, y: 0 }}
                                           exit={{ opacity: 0, y: 6 }}
@@ -2655,7 +2664,7 @@ export default function App() {
                                   setBulkImportRows((prev) => [
                                     ...prev,
                                     {
-                                      id: `${Date.now()}-manual`,
+                                      id: newBulkImportRowId(),
                                       original: '',
                                       identifierType: 'email',
                                       matchedPersonId: null,
