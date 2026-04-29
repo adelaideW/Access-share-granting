@@ -164,7 +164,6 @@ export function HoverTooltip({
       <span
         ref={wrapRef}
         className={wrapperClassName}
-        style={wrapperClassName ? undefined : { display: 'contents' }}
         onMouseEnter={scheduleOpen}
         onMouseLeave={scheduleClose}
         onFocus={scheduleOpen}
