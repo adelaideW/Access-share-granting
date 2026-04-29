@@ -382,6 +382,7 @@ export default function App() {
 
   const [isEmailComposerOpen, setIsEmailComposerOpen] = useState(false);
   const [emailRecipientIds, setEmailRecipientIds] = useState<Set<string>>(new Set());
+  const [emailRecipientsExpanded, setEmailRecipientsExpanded] = useState(true);
   const [emailComposerTab, setEmailComposerTab] = useState<'edit' | 'preview'>('edit');
   const [emailSubject, setEmailSubject] = useState('Harry Porter shared document with you');
   const [emailCustomMessage, setEmailCustomMessage] = useState('');
@@ -841,6 +842,10 @@ export default function App() {
   }, [people]);
 
   useEffect(() => {
+    if (isEmailComposerOpen) setEmailRecipientsExpanded(true);
+  }, [isEmailComposerOpen]);
+
+  useEffect(() => {
     const editor = bodyEditorRef.current;
     if (!isEmailComposerOpen || !editor) return;
     if (editor.childNodes.length > 0) return;
@@ -1210,10 +1215,20 @@ export default function App() {
               </button>
             </div>
             <div className="flex flex-1 min-h-0 flex-col gap-5 overflow-y-auto px-6 pb-6 pt-6">
-              <p className="shrink-0 text-sm text-gray-500 -mt-2">
-                Select people or groups to notify; everyone is selected by default.
-              </p>
-              <div className="space-y-4 max-h-[min(320px,40vh)] shrink-0 overflow-y-auto pr-1">
+              <div className="shrink-0 -mt-2 flex items-center justify-between gap-3">
+                <p className="text-sm text-gray-500">
+                  Select people or groups to notify; everyone is selected by default.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setEmailRecipientsExpanded((v) => !v)}
+                  className="text-sm font-medium text-[#7A005D] hover:underline"
+                >
+                  {emailRecipientsExpanded ? 'Collapse' : 'Expand'}
+                </button>
+              </div>
+              {emailRecipientsExpanded && (
+              <div className="space-y-4 shrink-0 pr-1">
                 {EMAIL_COMPOSER_BUCKET_ORDER.map((bucket) => {
                   const members = people.filter(
                     (p) => emailComposerBucket(p.role) === bucket
@@ -1267,6 +1282,7 @@ export default function App() {
                   );
                 })}
               </div>
+              )}
               <div className="flex min-h-[min(480px,58vh)] flex-1 flex-col gap-3 overflow-hidden">
                 <div className="inline-flex h-10 w-[200px] max-w-full shrink-0 items-center rounded-xl border border-gray-300 p-0.5">
                   <button
@@ -1378,7 +1394,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="flex min-h-[200px] flex-1 resize-y overflow-auto p-4 text-sm text-gray-800">
+                  <div className="flex min-h-0 flex-1 overflow-auto p-4 text-sm text-gray-800">
                     {emailComposerTab === 'preview' ? (
                       <div className="rounded-2xl border border-gray-200 bg-[#F8FAFC] p-6">
                         <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Subject</div>
@@ -1394,7 +1410,7 @@ export default function App() {
                         ref={bodyEditorRef}
                         contentEditable
                         suppressContentEditableWarning
-                        className="min-h-[120px] w-full outline-none leading-relaxed"
+                        className="h-full min-h-full w-full outline-none leading-relaxed"
                         onInput={() => refreshBodyWordState()}
                         onBlur={() => refreshBodyWordState()}
                         onClick={(e) => {
