@@ -94,4 +94,15 @@ describe('Snackbar integration (App)', () => {
     expect(await screen.findByText(/already matched with another address/i)).toBeInTheDocument();
     assertNoErrorBoundary();
   });
+
+  it('shows info tone for a generic toast without crashing (Vitest hook)', async () => {
+    render(<App />);
+    assertNoErrorBoundary();
+    const w = window as Window & { __ACCESS_APP_TEST__?: { enqueueToast: (m: string) => void } };
+    await waitFor(() => expect(w.__ACCESS_APP_TEST__).toBeDefined());
+    w.__ACCESS_APP_TEST__!.enqueueToast('Illustrative note: this panel is a prototype');
+    expect(await screen.findByText(/Illustrative note/i)).toBeInTheDocument();
+    expect(inferToastTone('Illustrative note: this panel is a prototype')).toBe('info');
+    assertNoErrorBoundary();
+  });
 });

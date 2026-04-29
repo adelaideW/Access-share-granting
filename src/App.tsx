@@ -361,6 +361,20 @@ export default function App() {
       snackbarTimerRef.current = null;
     }, 5000);
   };
+  const showToastRef = useRef(showToast);
+  showToastRef.current = showToast;
+  useEffect(() => {
+    if (typeof process === 'undefined' || process.env.VITEST !== 'true') return;
+    const w = window as Window & { __ACCESS_APP_TEST__?: { enqueueToast: (message: string) => void } };
+    w.__ACCESS_APP_TEST__ = {
+      enqueueToast: (message: string) => {
+        showToastRef.current(message);
+      },
+    };
+    return () => {
+      delete w.__ACCESS_APP_TEST__;
+    };
+  }, []);
   const [activeAccessDropdown, setActiveAccessDropdown] = useState<string | null>(null);
   const [transferTarget, setTransferTarget] = useState('');
   const [checkedRows, setCheckedRows] = useState<Set<string>>(new Set(['1']));

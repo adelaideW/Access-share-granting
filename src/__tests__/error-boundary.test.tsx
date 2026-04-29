@@ -42,4 +42,27 @@ describe('ErrorBoundary', () => {
 
     err.mockRestore();
   });
+
+  it('keeps sibling shell visible outside the subtree that threw', () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    function ImmediateBomb() {
+      throw new Error('immediate-boom');
+    }
+
+    render(
+      <>
+        <div data-testid="app-shell">shell</div>
+        <ErrorBoundary>
+          <ImmediateBomb />
+        </ErrorBoundary>
+      </>,
+    );
+
+    expect(screen.getByTestId('app-shell')).toHaveTextContent('shell');
+    expect(screen.getByText(/Something went wrong/i)).toBeInTheDocument();
+    expect(screen.getByText(/immediate-boom/)).toBeInTheDocument();
+
+    err.mockRestore();
+  });
 });

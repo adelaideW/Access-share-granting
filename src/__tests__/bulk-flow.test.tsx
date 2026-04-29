@@ -58,6 +58,8 @@ describe('Bulk add individuals flow', () => {
 
     expect(document.querySelectorAll('[data-bulk-warning="true"]').length).toBe(2);
     expect(within(dialog).getByRole('button', {name: /^Add$/})).toBeDisabled();
+    expect(within(dialog).getByDisplayValue('harry.porter@company.com')).toBeInTheDocument();
+    expect(within(dialog).getByDisplayValue('avery.lee@company.com')).toBeInTheDocument();
     expect(await screen.findByText(/already matched with another address/i)).toBeInTheDocument();
     assertNoErrorBoundary();
   });
@@ -103,7 +105,7 @@ describe('Bulk add individuals flow', () => {
     assertNoErrorBoundary();
   });
 
-  it('6 Add row four times after one import yields five removable rows', async () => {
+  it('6 Add row five times after one import yields six rows and independent people dropdowns', async () => {
     const user = userEvent.setup();
     render(<App />);
     const dialog = await openBulkModal(user);
@@ -111,10 +113,25 @@ describe('Bulk add individuals flow', () => {
     await user.click(paste);
     await user.keyboard('E1001');
     await user.click(within(dialog).getByRole('button', {name: 'Import'}));
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       await user.click(within(dialog).getByRole('button', {name: /Add row/i}));
     }
-    expect(within(dialog).getAllByRole('button', {name: /Remove row/i})).toHaveLength(5);
+    expect(within(dialog).getAllByRole('button', {name: /Remove row/i})).toHaveLength(6);
+
+    const table = within(dialog).getByRole('table');
+    const tbodyRows = table.querySelectorAll('tbody tr');
+    expect(tbodyRows.length).toBeGreaterThanOrEqual(6);
+    const firstDataRow = tbodyRows[0] as HTMLElement;
+    const lastDataRow = tbodyRows[5] as HTMLElement;
+    const firstPeople = within(firstDataRow).getAllByRole('textbox')[1]!;
+    const lastPeople = within(lastDataRow).getAllByRole('textbox')[1]!;
+
+    await user.click(firstPeople);
+    await waitFor(() => expect(document.querySelectorAll('[data-bulk-menu]').length).toBe(1));
+
+    await user.click(lastPeople);
+    await waitFor(() => expect(document.querySelectorAll('[data-bulk-menu]').length).toBe(1));
+
     assertNoErrorBoundary();
   });
 
@@ -163,7 +180,7 @@ describe('Bulk add individuals flow', () => {
     await user.click(within(dialog).getByDisplayValue('Harry Porter'));
     expect(within(dialog).getByRole('button', {name: sendExternal})).toBeInTheDocument();
 
-    fireEvent.mouseDown(document.body);
+    fireEvent.mouseDown(within(dialog).getByRole('heading', {name: /Bulk add individuals/i}));
     await waitFor(() =>
       expect(within(dialog).queryByRole('button', {name: sendExternal})).not.toBeInTheDocument(),
     );
