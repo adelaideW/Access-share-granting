@@ -14,6 +14,7 @@ import {
   Pencil, 
   Lock, 
   ChevronDown, 
+  ChevronUp,
   Globe,
   Building2,
   Check,
@@ -383,6 +384,7 @@ export default function App() {
   const [isEmailComposerOpen, setIsEmailComposerOpen] = useState(false);
   const [emailRecipientIds, setEmailRecipientIds] = useState<Set<string>>(new Set());
   const [emailRecipientsExpanded, setEmailRecipientsExpanded] = useState(true);
+  const [collapsedRecipientBuckets, setCollapsedRecipientBuckets] = useState<Set<EmailComposerBucket>>(new Set());
   const [emailComposerTab, setEmailComposerTab] = useState<'edit' | 'preview'>('edit');
   const [emailSubject, setEmailSubject] = useState('Harry Porter shared document with you');
   const [emailCustomMessage, setEmailCustomMessage] = useState('');
@@ -843,6 +845,7 @@ export default function App() {
 
   useEffect(() => {
     if (isEmailComposerOpen) setEmailRecipientsExpanded(true);
+    if (isEmailComposerOpen) setCollapsedRecipientBuckets(new Set());
   }, [isEmailComposerOpen]);
 
   useEffect(() => {
@@ -1189,8 +1192,8 @@ export default function App() {
 
       {/* Modal Container */}
       <div
-        className={`bg-white rounded-2xl shadow-xl w-full max-w-[744px] border border-gray-200 z-10 relative ${
-          isEmailComposerOpen ? 'flex max-h-[min(94vh,960px)] min-h-[min(760px,85vh)] flex-col overflow-hidden' : ''
+        className={`bg-white rounded-2xl shadow-xl w-full max-w-[744px] border border-gray-200 z-10 relative flex max-h-[960px] flex-col overflow-hidden ${
+          isEmailComposerOpen ? 'min-h-[min(760px,85vh)]' : ''
         }`}
       >
         {isEmailComposerOpen ? (
@@ -1224,7 +1227,7 @@ export default function App() {
                   onClick={() => setEmailRecipientsExpanded((v) => !v)}
                   className="text-sm font-medium text-[#7A005D] hover:underline"
                 >
-                  {emailRecipientsExpanded ? 'Collapse' : 'Expand'}
+                  {emailRecipientsExpanded ? 'Collapse all recipients' : 'View all recipients'}
                 </button>
               </div>
               {emailRecipientsExpanded && (
@@ -1242,14 +1245,30 @@ export default function App() {
                   const allInBucket =
                     ids.length > 0 && selectedInBucket === ids.length;
                   const someInBucket = selectedInBucket > 0 && !allInBucket;
+                  const isCollapsed = collapsedRecipientBuckets.has(bucket);
                   return (
                     <div key={bucket}>
-                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                        {bucket.toUpperCase().replace(/\s+/g, ' ')}{' '}
-                        <span className="text-gray-400 font-normal normal-case">
-                          ({itemCount})
+                      <button
+                        type="button"
+                        className="mb-2 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500"
+                        onClick={() =>
+                          setCollapsedRecipientBuckets((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(bucket)) next.delete(bucket);
+                            else next.add(bucket);
+                            return next;
+                          })
+                        }
+                      >
+                        <span>
+                          {bucket.toUpperCase().replace(/\s+/g, ' ')}{' '}
+                          <span className="text-gray-400 font-normal normal-case">
+                            ({itemCount})
+                          </span>
                         </span>
-                      </div>
+                        {isCollapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                      </button>
+                      {!isCollapsed && (
                       <label className="flex items-start gap-3 cursor-pointer rounded-lg px-2 py-2 hover:bg-gray-50 border border-transparent hover:border-gray-200">
                         <input
                           type="checkbox"
@@ -1278,6 +1297,7 @@ export default function App() {
                           ))}
                         </div>
                       </label>
+                      )}
                     </div>
                   );
                 })}
@@ -1394,7 +1414,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="flex min-h-0 flex-1 overflow-auto p-4 text-sm text-gray-800">
+                  <div className="flex min-h-[160px] flex-1 overflow-auto p-4 text-sm text-gray-800">
                     {emailComposerTab === 'preview' ? (
                       <div className="rounded-2xl border border-gray-200 bg-[#F8FAFC] p-6">
                         <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Subject</div>
@@ -1410,7 +1430,7 @@ export default function App() {
                         ref={bodyEditorRef}
                         contentEditable
                         suppressContentEditableWarning
-                        className="h-full min-h-full w-full outline-none leading-relaxed"
+                        className="h-full min-h-[160px] w-full outline-none leading-relaxed"
                         onInput={() => refreshBodyWordState()}
                         onBlur={() => refreshBodyWordState()}
                         onClick={(e) => {
@@ -1495,7 +1515,7 @@ export default function App() {
         ) : (
           <>
         {/* Header */}
-        <div className="px-6 pt-6 pb-4 flex items-center justify-between">
+        <div className="shrink-0 px-6 pt-6 pb-4 flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-gray-900">
             Sharing access
           </h1>
@@ -1505,7 +1525,7 @@ export default function App() {
         </div>
 
         {/* Add People Section */}
-        <div className="px-6 pb-6 border-b border-gray-100">
+        <div className="shrink-0 px-6 pb-6 border-b border-gray-100">
           <div className="flex gap-3 items-start">
             <div className="relative flex-1" ref={inputRef}>
               <div 
@@ -1712,7 +1732,7 @@ export default function App() {
         </div>
 
         {/* People with access Section */}
-        <div className="px-6 py-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">People with access</h2>
             <div className="flex items-center gap-4">
@@ -2082,7 +2102,7 @@ export default function App() {
 
         {/* General access — Google Drive–style scope + optional link role */}
         {(viewMode === 'advanced' || viewMode === 'advanced2') && (
-          <div className="px-6 py-4 border-t border-gray-100">
+          <div className="shrink-0 px-6 py-4 border-t border-gray-100">
             <h2 className="text-base font-semibold text-gray-900 mb-3">General access</h2>
             <div
               ref={generalScopeDropdownRef}
@@ -2404,7 +2424,7 @@ export default function App() {
         )}
 
         {/* Footer */}
-        <div className="px-6 py-6 border-t border-gray-100 flex items-center justify-between">
+        <div className="shrink-0 px-6 py-6 border-t border-gray-100 flex items-center justify-between">
           <label className="flex items-center gap-3 cursor-pointer group">
             <input 
               type="checkbox" 
