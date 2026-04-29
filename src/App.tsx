@@ -1642,6 +1642,7 @@ export default function App() {
                 <HoverTooltip
                   placement="top"
                   align="end"
+                  wrapperClassName="inline-flex items-center"
                   className="w-72 rounded-xl border border-gray-300 bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-gray-900 shadow-lg"
                   content="Bulk add a list of employees using names, IDs, or email addresses"
                 >
@@ -1809,6 +1810,7 @@ export default function App() {
               <HoverTooltip
                 placement="top"
                 align="center"
+                wrapperClassName="inline-flex items-center"
                 className="w-fit whitespace-nowrap rounded-xl border border-gray-200 bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-gray-900 shadow-lg"
                 content="Copy emails for all with access"
               >
@@ -1824,6 +1826,7 @@ export default function App() {
               <HoverTooltip
                 placement="top"
                 align="center"
+                wrapperClassName="inline-flex items-center"
                 className="w-fit whitespace-nowrap rounded-xl border border-gray-200 bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-gray-900 shadow-lg"
                 content="Email all with access"
               >
@@ -1839,6 +1842,7 @@ export default function App() {
               <HoverTooltip
                 placement="top"
                 align="center"
+                wrapperClassName="inline-flex items-center"
                 className="w-fit whitespace-nowrap rounded-xl border border-gray-200 bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-gray-900 shadow-lg"
                 content="Preview all with access"
               >
@@ -1884,6 +1888,7 @@ export default function App() {
                     <HoverTooltip
                       placement="top"
                       align="center"
+                      wrapperClassName="inline-flex items-center"
                       className="whitespace-nowrap rounded-xl border border-gray-200 bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-gray-900 shadow-lg"
                       content="Edit"
                     >
@@ -1901,6 +1906,7 @@ export default function App() {
                     <HoverTooltip
                       placement="top"
                       align="center"
+                      wrapperClassName="inline-flex items-center"
                       className="whitespace-nowrap rounded-xl border border-gray-200 bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-gray-900 shadow-lg"
                       content="Preview"
                     >
@@ -2827,6 +2833,7 @@ export default function App() {
                                       <HoverTooltip
                                         placement="top"
                                         align="end"
+                                        wrapperClassName="inline-flex items-center"
                                         className="h-auto w-64 whitespace-normal break-words rounded-xl border border-gray-200 bg-white px-3 py-2 text-left text-xs leading-relaxed text-gray-700 shadow-lg"
                                         content="This person has been matched with a different address in the table."
                                       >
