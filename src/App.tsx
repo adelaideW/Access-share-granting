@@ -442,6 +442,8 @@ export default function App() {
   }, []);
 
   const transferSearchRef = useRef<HTMLDivElement>(null);
+  const peopleRowsScrollRef = useRef<HTMLDivElement>(null);
+  const previousPeopleCountRef = useRef(people.length);
   const inputRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const accessDropdownRef = useRef<HTMLDivElement>(null);
@@ -641,7 +643,7 @@ export default function App() {
         {!isSingle && names.length > 1 && (
           <>
             <div className="pointer-events-none absolute inset-0 z-10 cursor-help" aria-hidden />
-            <div className="absolute left-0 bottom-full mb-2 p-4 bg-[#F3F4F6] text-[#1f2937] rounded-2xl opacity-0 invisible group-hover/tags-cell:opacity-100 group-hover/tags-cell:visible transition-all z-[220] w-80 shadow-2xl border border-gray-300 pointer-events-none">
+            <div className="absolute left-0 bottom-full mb-2 p-4 bg-[#F3F4F6] text-[#1f2937] rounded-2xl opacity-0 invisible group-hover/tags-cell:opacity-100 group-hover/tags-cell:visible transition-all z-[1500] w-80 shadow-2xl border border-gray-300 pointer-events-none">
               <div className="font-bold text-sm mb-2">All people/groups:</div>
               <div className="h-[1px] bg-gray-300 mb-3" />
               <div className="flex flex-wrap gap-2">
@@ -842,6 +844,16 @@ export default function App() {
     const valid = new Set(people.map((p) => p.id));
     setEmailRecipientIds((prev) => new Set([...prev].filter((id) => valid.has(id))));
   }, [people]);
+
+  useEffect(() => {
+    if (people.length > previousPeopleCountRef.current) {
+      const el = peopleRowsScrollRef.current;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+    }
+    previousPeopleCountRef.current = people.length;
+  }, [people.length]);
 
   useEffect(() => {
     if (isEmailComposerOpen) setEmailRecipientsExpanded(true);
@@ -1192,8 +1204,8 @@ export default function App() {
 
       {/* Modal Container */}
       <div
-        className={`bg-white rounded-2xl shadow-xl w-full max-w-[744px] border border-gray-200 z-10 relative flex max-h-[960px] flex-col overflow-hidden ${
-          isEmailComposerOpen ? 'min-h-[min(760px,85vh)]' : ''
+        className={`bg-white rounded-2xl shadow-xl w-full max-w-[744px] border border-gray-200 z-10 relative flex max-h-[960px] flex-col ${
+          isEmailComposerOpen ? 'min-h-[min(760px,85vh)] overflow-hidden' : 'overflow-visible'
         }`}
       >
         {isEmailComposerOpen ? (
@@ -1395,7 +1407,7 @@ export default function App() {
                             initial={{ opacity: 0, y: 6 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 6 }}
-                            className="absolute right-0 top-full z-[300] mt-2 w-48 max-h-[240px] overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-xl"
+                            className="absolute right-0 top-full z-[1500] mt-2 w-48 max-h-[240px] overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-xl"
                           >
                             {(['Recipient', 'Username', 'Filename', 'File type', 'Access type'] as const).map((option) => (
                               <button
@@ -1414,13 +1426,13 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="flex min-h-[160px] flex-1 overflow-auto p-4 text-sm text-gray-800">
+                  <div className="h-[120px] min-h-[120px] resize-y overflow-auto p-4 text-sm text-gray-800">
                     {emailComposerTab === 'preview' ? (
                       <div className="rounded-2xl border border-gray-200 bg-[#F8FAFC] p-6">
                         <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Subject</div>
                         <div className="mt-2 text-[20px] font-semibold text-[#111827]">{emailSubject || defaultEmailSubject()}</div>
                         <div className="my-4 h-px bg-gray-200" />
-                        <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Message</div>
+                        <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Body</div>
                         <div className="mt-3 text-[16px] leading-relaxed text-[#111827]">
                           <div dangerouslySetInnerHTML={{ __html: emailBodyHtml || `${defaultEmailBody()}<br/>• {Document names}` }} />
                         </div>
@@ -1430,7 +1442,7 @@ export default function App() {
                         ref={bodyEditorRef}
                         contentEditable
                         suppressContentEditableWarning
-                        className="h-full min-h-[160px] w-full outline-none leading-relaxed"
+                        className="h-full min-h-full w-full outline-none leading-relaxed"
                         onInput={() => refreshBodyWordState()}
                         onBlur={() => refreshBodyWordState()}
                         onClick={(e) => {
@@ -1488,8 +1500,8 @@ export default function App() {
                       <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Subject</div>
                       <div className="mt-2 text-[20px] font-semibold text-[#111827]">{emailSubject || defaultEmailSubject()}</div>
                       <div className="my-4 h-px bg-gray-200" />
-                      <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Message</div>
-                      <div className="mt-3 text-[16px] leading-relaxed text-[#111827]">
+                      <div className="text-[12px] font-semibold uppercase tracking-wide text-[#6B7280]">Body</div>
+                      <div className="mt-3 h-[120px] min-h-[120px] resize-y overflow-auto text-[16px] leading-relaxed text-[#111827]">
                         <div dangerouslySetInnerHTML={{ __html: emailBodyHtml || `${defaultEmailBody()}<br/>• {Document names}` }} />
                       </div>
                     </div>
@@ -1585,7 +1597,7 @@ export default function App() {
                   >
                     <FileUp className="w-5 h-5" />
                   </button>
-                  <div className="invisible absolute bottom-full right-0 z-50 mb-2 w-72 rounded-xl border border-gray-300 bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all group-hover/bulk-tooltip:visible group-hover/bulk-tooltip:opacity-100">
+                  <div className="invisible absolute bottom-full right-0 z-[1500] mb-2 w-72 rounded-xl border border-gray-300 bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all group-hover/bulk-tooltip:visible group-hover/bulk-tooltip:opacity-100">
                     Bulk add a list of employees using names, IDs, or email addresses
                   </div>
                 </div>
@@ -1599,7 +1611,7 @@ export default function App() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 5 }}
                     id="main-input-menu"
-                    className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-[240px] overflow-y-auto"
+                    className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 z-[1500] max-h-[240px] overflow-y-auto"
                     onKeyDown={(e) => handleMenuArrowNavigation(e, e.currentTarget)}
                   >
                     {viewMode === 'advanced2' && inputValue.trim() !== '' ? (
@@ -1732,8 +1744,8 @@ export default function App() {
         </div>
 
         {/* People with access Section */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-          <div className="flex items-center justify-between mb-4">
+        <div ref={peopleRowsScrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-0">
+          <div className="sticky top-0 z-[1250] mb-0 flex items-center justify-between border-b border-gray-200 bg-white py-4">
             <h2 className="text-lg font-semibold text-gray-900">People with access</h2>
             <div className="flex items-center gap-4">
               {/* Copy icon now shows in both modes or specifically requested for default */}
@@ -1746,7 +1758,7 @@ export default function App() {
                 >
                   <Copy className="w-5 h-5" />
                 </button>
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#F3F4F6] text-gray-900 text-xs font-medium rounded-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all w-fit whitespace-nowrap shadow-lg border border-gray-200 z-50">
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#F3F4F6] text-gray-900 text-xs font-medium rounded-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all w-fit whitespace-nowrap shadow-lg border border-gray-200 z-[1500]">
                   Copy emails for all with access
                 </div>
               </div>
@@ -1759,7 +1771,7 @@ export default function App() {
                 >
                   <Mail className="w-5 h-5" />
                 </button>
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#F3F4F6] text-gray-900 text-xs font-medium rounded-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all w-fit whitespace-nowrap shadow-lg border border-gray-200 z-50">
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#F3F4F6] text-gray-900 text-xs font-medium rounded-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all w-fit whitespace-nowrap shadow-lg border border-gray-200 z-[1500]">
                   Email all with access
                 </div>
               </div>
@@ -1772,16 +1784,16 @@ export default function App() {
                 >
                   <Eye className="w-5 h-5" />
                 </button>
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#F3F4F6] text-gray-900 text-xs font-medium rounded-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all w-fit whitespace-nowrap shadow-lg border border-gray-200 z-50">
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#F3F4F6] text-gray-900 text-xs font-medium rounded-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all w-fit whitespace-nowrap shadow-lg border border-gray-200 z-[1500]">
                   Preview all with access
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="border border-gray-200 rounded-xl overflow-visible">
+          <div className="rounded-xl border border-gray-200 overflow-visible">
             {/* Table Header */}
-            <div className={`grid ${gridCols} gap-x-10 px-3 py-3 bg-gray-50/50 border-b border-gray-200 text-sm font-medium text-gray-500`}>
+            <div className={`sticky top-[72px] z-[1250] grid ${gridCols} gap-x-10 border-b border-gray-200 bg-gray-50/95 px-3 py-3 text-sm font-medium text-gray-500 backdrop-blur-sm`}>
               <div className="flex min-w-0 items-center gap-4">
                 <span className="shrink-0">People</span>
               </div>
@@ -1814,7 +1826,7 @@ export default function App() {
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
-                      <div className="invisible absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-gray-200 bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all group-hover/row-edit:visible group-hover/row-edit:opacity-100">
+                      <div className="invisible absolute bottom-full left-1/2 z-[1500] mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-gray-200 bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all group-hover/row-edit:visible group-hover/row-edit:opacity-100">
                         Edit
                       </div>
                     </div>
@@ -1827,7 +1839,7 @@ export default function App() {
                       >
                         <Eye className="h-4 w-4" />
                       </button>
-                      <div className="invisible absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-gray-200 bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all group-hover/row-preview:visible group-hover/row-preview:opacity-100">
+                      <div className="invisible absolute bottom-full left-1/2 z-[1500] mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-gray-200 bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all group-hover/row-preview:visible group-hover/row-preview:opacity-100">
                         Preview
                       </div>
                     </div>
@@ -1835,7 +1847,7 @@ export default function App() {
                   {editingRowId === person.id && (
                     <div
                       ref={transferSearchRef}
-                      className="absolute left-4 top-full z-[80] mt-2 w-[320px] rounded-xl border border-gray-200 bg-white p-3 shadow-2xl"
+                      className="absolute left-4 top-full z-[1500] mt-2 w-[320px] rounded-xl border border-gray-200 bg-white p-3 shadow-2xl"
                     >
                       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
                         Remove group/person from this row
@@ -1919,7 +1931,7 @@ export default function App() {
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 10 }}
-                            className="absolute left-0 top-full z-[1100] mt-2 w-72 max-h-[240px] overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 pb-6 shadow-2xl"
+                            className="absolute left-0 top-full z-[1500] mt-2 w-72 max-h-[240px] overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 pb-6 shadow-2xl"
                             onKeyDown={(e) => handleMenuArrowNavigation(e, e.currentTarget)}
                           >
                               <button 
@@ -2003,7 +2015,7 @@ export default function App() {
                                   {person.expirationDate ? 'Remove expiration' : 'Add expiration'}
                                   <span className="relative inline-flex items-center group/exp-help">
                                     <HelpCircle className="h-3.5 w-3.5 text-gray-400" />
-                                    <span className="pointer-events-none invisible absolute left-0 top-full z-[1200] mt-2 h-auto w-[340px] whitespace-normal break-words rounded-lg border border-gray-200 bg-white p-2 text-xs leading-relaxed text-gray-700 opacity-0 shadow-xl transition-all group-hover/exp-help:visible group-hover/exp-help:opacity-100">
+                                    <span className="pointer-events-none invisible absolute left-0 top-full z-[1500] mt-2 h-auto w-[340px] whitespace-normal break-words rounded-lg border border-gray-200 bg-white p-2 text-xs leading-relaxed text-gray-700 opacity-0 shadow-xl transition-all group-hover/exp-help:visible group-hover/exp-help:opacity-100">
                                       Once access expires, this group will no longer be able to access the document. If the artifact is currently set to "Company-wide" or "Anyone with the link," it will automatically switch to "Restricted" after expiration.
                                     </span>
                                   </span>
@@ -2060,14 +2072,14 @@ export default function App() {
                           >
                             <X className="h-4 w-4" />
                           </button>
-                          <div className="invisible absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-gray-200 bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all group-hover/remove-expiry:visible group-hover/remove-expiry:opacity-100">
+                          <div className="invisible absolute bottom-full left-1/2 z-[1500] mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-gray-200 bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all group-hover/remove-expiry:visible group-hover/remove-expiry:opacity-100">
                             Remove
                           </div>
                         </div>
                         {calendarOpenPersonId === person.id && (
                           <div
                             ref={expirationCalendarPopoverRef}
-                            className="absolute left-0 top-full z-[85] mt-2"
+                            className="absolute left-0 top-full z-[1500] mt-2"
                           >
                             <ExpirationCalendarPopover
                               valueIso={person.expirationDate}
@@ -2088,7 +2100,7 @@ export default function App() {
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
-                        <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-[#F3F4F6] text-gray-900 text-xs font-medium rounded-xl opacity-0 invisible group-hover/delete-tooltip:opacity-100 group-hover/delete-tooltip:visible transition-all w-fit whitespace-nowrap shadow-lg border border-gray-200 z-50">
+                        <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-[#F3F4F6] text-gray-900 text-xs font-medium rounded-xl opacity-0 invisible group-hover/delete-tooltip:opacity-100 group-hover/delete-tooltip:visible transition-all w-fit whitespace-nowrap shadow-lg border border-gray-200 z-[1500]">
                           Remove access
                         </div>
                       </div>
@@ -2193,14 +2205,14 @@ export default function App() {
                                 >
                                   <X className="h-4 w-4" />
                                 </button>
-                                <div className="invisible absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-gray-200 bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all group-hover/general-exp-remove:visible group-hover/general-exp-remove:opacity-100">
+                                <div className="invisible absolute bottom-full left-1/2 z-[1500] mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-gray-200 bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-gray-900 opacity-0 shadow-lg transition-all group-hover/general-exp-remove:visible group-hover/general-exp-remove:opacity-100">
                                   Remove
                                 </div>
                               </div>
                               {calendarGeneralLinkOpen && (
                                 <div
                                   ref={generalExpirationCalendarPopoverRef}
-                                  className="absolute left-0 top-full z-[260] mt-2"
+                                  className="absolute left-0 top-full z-[1500] mt-2"
                                 >
                                   <ExpirationCalendarPopover
                                     valueIso={generalLinkExpirationIso}
@@ -2224,7 +2236,7 @@ export default function App() {
                           initial={{ opacity: 0, y: 4 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: 4 }}
-                          className="absolute left-0 top-full mt-1.5 z-[1100] w-[240px] max-h-[240px] overflow-y-auto bg-white rounded-xl border border-gray-200 shadow-2xl py-1"
+                          className="absolute left-0 top-full mt-1.5 z-[1500] w-[240px] max-h-[240px] overflow-y-auto bg-white rounded-xl border border-gray-200 shadow-2xl py-1"
                           onKeyDown={(e) => handleMenuArrowNavigation(e, e.currentTarget)}
                         >
                           {(
@@ -2307,7 +2319,7 @@ export default function App() {
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 10 }}
-                            className="absolute right-0 top-full z-[1100] mt-2 w-72 max-h-[240px] overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 pb-6 shadow-2xl"
+                            className="absolute right-0 top-full z-[1500] mt-2 w-72 max-h-[240px] overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 pb-6 shadow-2xl"
                             onKeyDown={(e) => handleMenuArrowNavigation(e, e.currentTarget)}
                           >
                               <button
@@ -2404,7 +2416,7 @@ export default function App() {
                                   {generalLinkExpirationIso ? 'Remove expiration' : 'Add expiration'}
                                   <span className="relative inline-flex items-center group/general-exp-help">
                                     <HelpCircle className="h-3.5 w-3.5 text-gray-400" />
-                                    <span className="pointer-events-none invisible absolute left-0 top-full z-[1200] mt-2 h-auto w-[340px] whitespace-normal break-words rounded-lg border border-gray-200 bg-white p-2 text-xs leading-relaxed text-gray-700 opacity-0 shadow-xl transition-all group-hover/general-exp-help:visible group-hover/general-exp-help:opacity-100">
+                                    <span className="pointer-events-none invisible absolute left-0 top-full z-[1500] mt-2 h-auto w-[340px] whitespace-normal break-words rounded-lg border border-gray-200 bg-white p-2 text-xs leading-relaxed text-gray-700 opacity-0 shadow-xl transition-all group-hover/general-exp-help:visible group-hover/general-exp-help:opacity-100">
                                       Once access expires, this group will no longer be able to access the document. If the artifact is currently set to "Company-wide" or "Anyone with the link," it will automatically switch to "Restricted" after expiration.
                                     </span>
                                   </span>
@@ -2623,7 +2635,7 @@ export default function App() {
                                           animate={{ opacity: 1, y: 0 }}
                                           exit={{ opacity: 0, y: 6 }}
                                           data-bulk-menu={row.id}
-                                          className="absolute left-0 top-full z-[1200] mt-2 w-full max-h-[220px] overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 shadow-xl"
+                                          className="absolute left-0 top-full z-[1500] mt-2 w-full max-h-[220px] overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 shadow-xl"
                                           onKeyDown={(e) => handleMenuArrowNavigation(e, e.currentTarget)}
                                         >
                                           {row.query.trim() === '' && (
@@ -2670,7 +2682,7 @@ export default function App() {
                                   {duplicateMatched && (
                                     <div className="relative group/dup-warning" data-bulk-warning="true">
                                       <AlertCircle className="h-4 w-4 text-amber-500" aria-hidden />
-                                      <div className="invisible absolute bottom-full right-0 z-[1200] mb-2 h-auto w-64 whitespace-normal break-words rounded-xl border border-gray-200 bg-white px-3 py-2 text-left text-xs leading-relaxed text-gray-700 opacity-0 shadow-lg transition-all group-hover/dup-warning:visible group-hover/dup-warning:opacity-100">
+                                      <div className="invisible absolute bottom-full right-0 z-[1500] mb-2 h-auto w-64 whitespace-normal break-words rounded-xl border border-gray-200 bg-white px-3 py-2 text-left text-xs leading-relaxed text-gray-700 opacity-0 shadow-lg transition-all group-hover/dup-warning:visible group-hover/dup-warning:opacity-100">
                                         This person has been matched with a different address in the table.
                                       </div>
                                     </div>
