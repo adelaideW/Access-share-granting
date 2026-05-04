@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from 'react';
+import { useState } from 'react';
 
 function isAllowedPortfolioReturn(u: URL): boolean {
   if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
@@ -32,10 +32,11 @@ function parsePortfolioReturn(search: string): string | null {
 }
 
 export function PortfolioReturnLink() {
-  const [href, setHref] = useState<string | null>(null);
-  useLayoutEffect(() => {
-    setHref(parsePortfolioReturn(window.location.search));
-  }, []);
+  const [href] = useState<string | null>(() =>
+    typeof window !== 'undefined'
+      ? parsePortfolioReturn(window.location.search)
+      : null,
+  );
   if (!href) return null;
   return (
     <a

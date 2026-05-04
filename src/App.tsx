@@ -1142,8 +1142,9 @@ export default function App() {
   }, [emailComposerTab, isEmailComposerOpen]);
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4 font-sans relative overflow-auto">
+    <>
       <PortfolioReturnLink />
+      <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4 font-sans relative overflow-auto">
       {/* Snackbar */}
       <AnimatePresence>
         {snackbarMessage && (
@@ -3048,6 +3049,7 @@ export default function App() {
         )}
       </AnimatePresence>
     </div>
+    </>
   );
 }
 
