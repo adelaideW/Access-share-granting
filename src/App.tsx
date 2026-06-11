@@ -56,6 +56,11 @@ import {
   type BulkIdentifierType,
 } from './lib/bulk.ts';
 import { inferToastTone, type SnackbarTone } from './lib/snackbarTone.ts';
+import {
+  getSupergroupCategory,
+  getSupergroupMembers,
+  SUPERGROUP_CATEGORIES,
+} from './lib/supergroups.ts';
 
 const bulkDirectory = DEMO_BULK_DIRECTORY;
 
@@ -387,6 +392,32 @@ function lookupPreviewPersonMeta(
   };
 }
 
+function expandNameToPreviewRows(
+  name: string,
+  grantRow: Person,
+  directoryPeople: Person[]
+): PreviewRow[] {
+  const groupMembers = getSupergroupMembers(name);
+  if (groupMembers.length > 0) {
+    return groupMembers.map((member) => ({
+      key: `${grantRow.id}-${name}-${member.name}`,
+      username: member.name,
+      role: [member.title, member.department].filter(Boolean).join(', ') || '—',
+      accessType: grantRow.role,
+      avatar: member.avatar,
+    }));
+  }
+
+  const meta = lookupPreviewPersonMeta(name, grantRow, directoryPeople);
+  return [
+    {
+      key: `${grantRow.id}-${name}`,
+      ...meta,
+      accessType: grantRow.role,
+    },
+  ];
+}
+
 function buildPreviewRows(
   previewDrawer: { mode: 'all' | 'row'; personId?: string } | null,
   peopleList: Person[],
@@ -400,14 +431,7 @@ function buildPreviewRows(
       : peopleList;
 
   return grantRows.flatMap((grantRow) =>
-    grantRow.names.map((name) => {
-      const meta = lookupPreviewPersonMeta(name, grantRow, directoryPeople);
-      return {
-        key: `${grantRow.id}-${name}`,
-        ...meta,
-        accessType: grantRow.role,
-      };
-    })
+    grantRow.names.flatMap((name) => expandNameToPreviewRows(name, grantRow, directoryPeople))
   );
 }
 
@@ -425,6 +449,7 @@ export default function App() {
   /** Label for the middle option (maps to product “{Company}” scope) */
   const organizationDisplayName = 'Acme Corp';
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [inputMenuCategoryId, setInputMenuCategoryId] = useState<string | null>(null);
   const [isBulkAddOpen, setIsBulkAddOpen] = useState(false);
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -797,6 +822,12 @@ export default function App() {
       setSelectedChips([...selectedChips, chip]);
     }
     setInputValue('');
+    setInputMenuCategoryId(null);
+  };
+
+  const closeInputMenu = () => {
+    setIsInputFocused(false);
+    setInputMenuCategoryId(null);
   };
 
   const removeChip = (chipToRemove: string) => {
@@ -1141,9 +1172,31 @@ export default function App() {
     showToast(`Message will be sent to ${emailRecipientIds.size} recipient(s)`);
   };
 
+  const focusMenuItem = (item: HTMLElement | undefined) => {
+    item?.focus();
+    item?.scrollIntoView({ block: 'nearest' });
+  };
+
+  const focusFirstInputMenuItem = (preferOptions = false) => {
+    requestAnimationFrame(() => {
+      const menu = mainInputMenuRef.current;
+      if (!menu) return;
+      const selector = preferOptions
+        ? 'button[data-menu-item="true"]:not([data-menu-back="true"])'
+        : 'button[data-menu-item="true"]';
+      const firstItem = menu.querySelector<HTMLElement>(selector);
+      focusMenuItem(firstItem ?? undefined);
+    });
+  };
+
   const handleMenuArrowNavigation = (
     event: React.KeyboardEvent<HTMLElement>,
-    menuRoot: HTMLElement | null
+    menuRoot: HTMLElement | null,
+    options?: {
+      onEnter?: (item: HTMLElement) => boolean;
+      onArrowLeft?: () => void;
+      onArrowRight?: (item: HTMLElement) => void;
+    }
   ) => {
     if (!menuRoot) return;
     const items = Array.from(
@@ -1151,18 +1204,71 @@ export default function App() {
     );
     if (items.length === 0) return;
     const activeIndex = items.findIndex((item) => item === document.activeElement);
+    const activeItem = items[activeIndex >= 0 ? activeIndex : 0];
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (options?.onEnter?.(activeItem)) return;
+      activeItem?.click();
+      return;
+    }
+    if (event.key === 'ArrowRight') {
+      if (options?.onArrowRight && activeItem) {
+        event.preventDefault();
+        options.onArrowRight(activeItem);
+      }
+      return;
+    }
+    if (event.key === 'ArrowLeft') {
+      if (options?.onArrowLeft) {
+        event.preventDefault();
+        options.onArrowLeft();
+      }
+      return;
+    }
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       const nextIndex = activeIndex < 0 ? 0 : (activeIndex + 1) % items.length;
-      items[nextIndex]?.focus();
+      focusMenuItem(items[nextIndex]);
       return;
     }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
       const nextIndex =
         activeIndex < 0 ? items.length - 1 : (activeIndex - 1 + items.length) % items.length;
-      items[nextIndex]?.focus();
+      focusMenuItem(items[nextIndex]);
     }
+  };
+
+  const activeSupergroupCategory = inputMenuCategoryId
+    ? getSupergroupCategory(inputMenuCategoryId)
+    : null;
+
+  const handleInputMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    handleMenuArrowNavigation(event, event.currentTarget, {
+      onArrowLeft: () => {
+        if (inputMenuCategoryId) {
+          setInputMenuCategoryId(null);
+          focusFirstInputMenuItem();
+        }
+      },
+      onArrowRight: (item) => {
+        const categoryId = item.dataset.categoryId;
+        if (categoryId) {
+          setInputMenuCategoryId(categoryId);
+          focusFirstInputMenuItem(true);
+        }
+      },
+      onEnter: (item) => {
+        const categoryId = item.dataset.categoryId;
+        if (categoryId) {
+          setInputMenuCategoryId(categoryId);
+          focusFirstInputMenuItem(true);
+          return true;
+        }
+        return false;
+      },
+    });
   };
 
   const directoryPeople = [...searchablePeople, ...availablePeople];
@@ -1747,9 +1853,9 @@ export default function App() {
                 width="trigger"
                 offset={4}
                 className="max-h-[240px] overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl"
-                onRequestClose={() => setIsInputFocused(false)}
+                onRequestClose={closeInputMenu}
               >
-                    <div onKeyDown={(e) => handleMenuArrowNavigation(e, e.currentTarget)}>
+                    <div onKeyDown={handleInputMenuKeyDown}>
                     {viewMode === 'advanced2' && inputValue.trim() !== '' ? (
                       // Search results for Advanced 2 when typing
                       <>
@@ -1791,6 +1897,30 @@ export default function App() {
                             <p className="text-sm text-gray-500">No people found</p>
                           </div>
                         )}
+                      </>
+                    ) : activeSupergroupCategory ? (
+                      <>
+                        <button
+                          type="button"
+                          data-menu-item="true"
+                          data-menu-back="true"
+                          onClick={() => setInputMenuCategoryId(null)}
+                          className="sticky top-0 z-10 flex w-full items-center gap-2 border-b border-gray-100 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-900 hover:bg-gray-50"
+                        >
+                          <ChevronLeft className="h-4 w-4 shrink-0 text-gray-500" />
+                          <span className="min-w-0 truncate">{activeSupergroupCategory.label}</span>
+                        </button>
+                        {activeSupergroupCategory.options.map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            data-menu-item="true"
+                            onClick={() => addChip(option)}
+                            className="w-full px-4 py-3 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                          >
+                            {option}
+                          </button>
+                        ))}
                       </>
                     ) : (
                       // Suggestions for all modes (including Advanced 2 when empty)
@@ -1851,14 +1981,19 @@ export default function App() {
                         ))}
 
                         <div className="px-4 py-2 mt-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-t border-gray-100 bg-gray-50">Categories</div>
-                        <button 
-                          data-menu-item="true"
-                          onClick={() => addChip('All... (Managers, Employees, etc.)')}
-                          className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-700 transition-colors flex items-center justify-between group"
-                        >
-                          <span>All... (Managers, Employees, etc.)</span>
-                          <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />
-                        </button>
+                        {SUPERGROUP_CATEGORIES.map((category) => (
+                          <button
+                            key={category.id}
+                            type="button"
+                            data-menu-item="true"
+                            data-category-id={category.id}
+                            onClick={() => setInputMenuCategoryId(category.id)}
+                            className="group flex w-full items-center justify-between px-4 py-3 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                          >
+                            <span>{category.label}</span>
+                            <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500" />
+                          </button>
+                        ))}
                       </>
                     )}
                     </div>
