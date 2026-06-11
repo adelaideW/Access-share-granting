@@ -332,6 +332,7 @@ function allAccessEmails(peopleList: Person[]): string[] {
 export default function App() {
   const [emailNotification, setEmailNotification] = useState(false);
   const [viewMode, setViewMode] = useState<'default' | 'advanced' | 'advanced2'>('advanced2');
+  const [showNotice, setShowNotice] = useState(false);
   const [generalAccessScope, setGeneralAccessScope] = useState<GeneralAccessScope>('restricted');
   const [generalLinkAccessRole, setGeneralLinkAccessRole] =
     useState<AccessLevel>('View as viewer');
@@ -1234,37 +1235,57 @@ export default function App() {
       </AnimatePresence>
 
       {/* View Mode Switcher - Moved to top right */}
-      <div className="absolute top-6 right-6 bg-white p-1 rounded-xl shadow-sm border border-gray-200 flex gap-1 z-20">
-        <button 
-          onClick={() => setViewMode('default')}
-          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-            viewMode === 'default' 
-            ? 'bg-[#7A005D] text-white shadow-md' 
-            : 'text-gray-500 hover:bg-gray-50'
-          }`}
-        >
-          Default
-        </button>
-        <button 
-          onClick={() => setViewMode('advanced')}
-          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-            viewMode === 'advanced' 
-            ? 'bg-[#7A005D] text-white shadow-md' 
-            : 'text-gray-500 hover:bg-gray-50'
-          }`}
-        >
-          Advanced
-        </button>
-        <button 
-          onClick={() => setViewMode('advanced2')}
-          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-            viewMode === 'advanced2' 
-            ? 'bg-[#7A005D] text-white shadow-md' 
-            : 'text-gray-500 hover:bg-gray-50'
-          }`}
-        >
-          Advanced 2
-        </button>
+      <div className="absolute top-6 right-6 bg-white p-1 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-1 z-20">
+        <div className="flex gap-1">
+          <button 
+            onClick={() => setViewMode('default')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              viewMode === 'default' 
+              ? 'bg-[#7A005D] text-white shadow-md' 
+              : 'text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            Default
+          </button>
+          <button 
+            onClick={() => setViewMode('advanced')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              viewMode === 'advanced' 
+              ? 'bg-[#7A005D] text-white shadow-md' 
+              : 'text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            Advanced
+          </button>
+          <button 
+            onClick={() => setViewMode('advanced2')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              viewMode === 'advanced2' 
+              ? 'bg-[#7A005D] text-white shadow-md' 
+              : 'text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            Advanced 2
+          </button>
+        </div>
+        <label className="flex items-center justify-between gap-3 px-3 py-1.5 border-t border-gray-100 cursor-pointer">
+          <span className="text-sm font-medium text-gray-600">Notice</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={showNotice}
+            onClick={() => setShowNotice((on) => !on)}
+            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+              showNotice ? 'bg-[#7A005D]' : 'bg-gray-200'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                showNotice ? 'translate-x-[18px]' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
+        </label>
       </div>
 
       {/* Modal Container */}
@@ -1798,6 +1819,33 @@ export default function App() {
             </button>
           </div>
         </div>
+
+        {showNotice && (
+          <div className="px-6 pb-4">
+            <div className="flex gap-3 rounded-xl bg-[#FAE5D3] px-4 py-3.5 text-[#4A3728]">
+              <div
+                className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#4A3728] text-xs font-bold leading-none text-white"
+                aria-hidden
+              >
+                !
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">Data access required</p>
+                <p className="mt-1 text-sm leading-relaxed">
+                  App admins have access to sensitive data and can grant visibility to managers and collaborators, only within Variable pay. Configure further in{' '}
+                  <a href="#" className="underline underline-offset-2 hover:text-[#7A005D]">
+                    Permissions Hub
+                  </a>{' '}
+                  or learn more in the{' '}
+                  <a href="#" className="underline underline-offset-2 hover:text-[#7A005D]">
+                    Help Center
+                  </a>
+                  .
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* People with access Section */}
         <div ref={peopleRowsScrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-0">
