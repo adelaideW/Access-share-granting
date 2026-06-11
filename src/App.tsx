@@ -1848,9 +1848,9 @@ export default function App() {
         )}
 
         {/* People with access Section */}
-        <div ref={peopleRowsScrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-0">
-          <div className="rounded-xl border border-gray-200 overflow-visible">
-            <div className="sticky top-0 z-[1250] bg-white">
+        <div ref={peopleRowsScrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 pb-1">
+          <div className="overflow-hidden rounded-xl border border-gray-200">
+            <div className="sticky top-0 z-[1250] overflow-hidden rounded-t-xl bg-white">
               <div className="flex items-center justify-between px-3 py-3">
                 <div className="flex min-w-0 items-center gap-2">
                   <h2 className="text-lg font-semibold text-gray-900">People with access</h2>
