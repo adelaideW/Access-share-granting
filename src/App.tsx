@@ -57,6 +57,14 @@ import {
 } from './lib/bulk.ts';
 import { inferToastTone, type SnackbarTone } from './lib/snackbarTone.ts';
 import {
+  filterInputMenuSearch,
+  getSuggestionByLabel,
+  INPUT_EMPLOYEE_OPTIONS,
+  INPUT_MENU_ITEM_CLASS,
+  INPUT_SUGGESTIONS,
+  isGroupSelection,
+} from './lib/inputMenuOptions.ts';
+import {
   getSupergroupCategory,
   getSupergroupMembers,
   SUPERGROUP_CATEGORIES,
@@ -450,6 +458,7 @@ export default function App() {
   const organizationDisplayName = 'Acme Corp';
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [inputMenuCategoryId, setInputMenuCategoryId] = useState<string | null>(null);
+  const [recentGroups, setRecentGroups] = useState<string[]>([]);
   const [isBulkAddOpen, setIsBulkAddOpen] = useState(false);
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -817,10 +826,17 @@ export default function App() {
     showToast('Transfer complete');
   };
 
+  const recordRecentGroup = (label: string) => {
+    const directory = [...searchablePeople, ...availablePeople];
+    if (!isGroupSelection(label, directory, bulkDirectory)) return;
+    setRecentGroups((prev) => [label, ...prev.filter((entry) => entry !== label)].slice(0, 8));
+  };
+
   const addChip = (chip: string) => {
     if (!selectedChips.includes(chip)) {
       setSelectedChips([...selectedChips, chip]);
     }
+    recordRecentGroup(chip);
     setInputValue('');
     setInputMenuCategoryId(null);
   };
@@ -879,6 +895,7 @@ export default function App() {
       role: 'View as viewer',
       isGroup: merged.length > 1,
     };
+    merged.forEach((name) => recordRecentGroup(name));
     setPeople((prev) => [...prev, newEntry]);
     setSelectedChips([]);
     setInputValue('');
@@ -1172,9 +1189,16 @@ export default function App() {
     showToast(`Message will be sent to ${emailRecipientIds.size} recipient(s)`);
   };
 
-  const focusMenuItem = (item: HTMLElement | undefined) => {
-    item?.focus();
-    item?.scrollIntoView({ block: 'nearest' });
+  const focusMenuItem = (item: HTMLElement | undefined, menuRoot?: HTMLElement | null) => {
+    if (menuRoot) {
+      menuRoot.querySelectorAll<HTMLElement>('button[data-menu-item="true"]').forEach((el) => {
+        el.classList.remove('bg-gray-50');
+      });
+    }
+    if (!item) return;
+    item.classList.add('bg-gray-50');
+    item.focus({ preventScroll: true });
+    item.scrollIntoView({ block: 'nearest' });
   };
 
   const focusFirstInputMenuItem = (preferOptions = false) => {
@@ -1185,7 +1209,7 @@ export default function App() {
         ? 'button[data-menu-item="true"]:not([data-menu-back="true"])'
         : 'button[data-menu-item="true"]';
       const firstItem = menu.querySelector<HTMLElement>(selector);
-      focusMenuItem(firstItem ?? undefined);
+      focusMenuItem(firstItem ?? undefined, menu);
     });
   };
 
@@ -1229,14 +1253,14 @@ export default function App() {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       const nextIndex = activeIndex < 0 ? 0 : (activeIndex + 1) % items.length;
-      focusMenuItem(items[nextIndex]);
+      focusMenuItem(items[nextIndex], menuRoot);
       return;
     }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
       const nextIndex =
         activeIndex < 0 ? items.length - 1 : (activeIndex - 1 + items.length) % items.length;
-      focusMenuItem(items[nextIndex]);
+      focusMenuItem(items[nextIndex], menuRoot);
     }
   };
 
@@ -1272,6 +1296,8 @@ export default function App() {
   };
 
   const directoryPeople = [...searchablePeople, ...availablePeople];
+  const inputMenuSearchResults = filterInputMenuSearch(inputValue, searchablePeople, bulkDirectory);
+  const inputMenuHasQuery = inputValue.trim() !== '';
   const previewRows = buildPreviewRows(previewDrawer, people, directoryPeople);
 
   const snackbarElapsedMs = snackbarMessage
@@ -1812,7 +1838,9 @@ export default function App() {
                       requestAnimationFrame(() => {
                         const menu = document.getElementById('main-input-menu');
                         const firstItem = menu?.querySelector<HTMLElement>('button[data-menu-item="true"]');
-                        firstItem?.focus();
+                        if (menu instanceof HTMLElement) {
+                          focusMenuItem(firstItem ?? undefined, menu);
+                        }
                       });
                     }
                   }}
@@ -1856,47 +1884,62 @@ export default function App() {
                 onRequestClose={closeInputMenu}
               >
                     <div onKeyDown={handleInputMenuKeyDown}>
-                    {viewMode === 'advanced2' && inputValue.trim() !== '' ? (
-                      // Search results for Advanced 2 when typing
+                    {inputMenuHasQuery && !activeSupergroupCategory ? (
                       <>
                         <div className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-gray-100">Search Results</div>
-                        {searchablePeople
-                          .filter(person => 
-                            person.names[0].toLowerCase().includes(inputValue.toLowerCase()) ||
-                            person.title?.toLowerCase().includes(inputValue.toLowerCase()) ||
-                            person.department?.toLowerCase().includes(inputValue.toLowerCase())
-                          )
-                          .map(person => (
-                            <button 
-                              key={person.id}
-                              data-menu-item="true"
-                              onClick={() => {
-                                addChip(person.names[0]);
-                                setInputValue('');
-                              }}
-                              className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors flex items-center gap-3 border-b border-gray-100 last:border-0"
-                            >
-                              <img 
-                                src={person.avatar || `https://ui-avatars.com/api/?name=${person.names[0]}&background=random`} 
-                                alt="" 
-                                className="w-10 h-10 rounded-full object-cover"
-                                referrerPolicy="no-referrer"
-                              />
-                              <div className="flex flex-col">
-                                <span className="text-sm font-medium text-gray-900">{person.names[0]}</span>
-                                <span className="text-xs text-gray-500">{person.title}, {person.department}</span>
-                              </div>
-                            </button>
-                          ))}
-                        {searchablePeople.filter(person => 
-                          person.names[0].toLowerCase().includes(inputValue.toLowerCase()) ||
-                          person.title?.toLowerCase().includes(inputValue.toLowerCase()) ||
-                          person.department?.toLowerCase().includes(inputValue.toLowerCase())
-                        ).length === 0 && (
-                          <div className="px-4 py-8 text-center">
-                            <p className="text-sm text-gray-500">No people found</p>
+                        {inputMenuSearchResults.users.map((person) => (
+                          <button
+                            key={person.id}
+                            type="button"
+                            data-menu-item="true"
+                            onClick={() => {
+                              addChip(person.names[0]);
+                              setInputValue('');
+                            }}
+                            className={`flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3 text-left last:border-0 ${INPUT_MENU_ITEM_CLASS}`}
+                          >
+                            <img
+                              src={
+                                person.avatar ||
+                                `https://ui-avatars.com/api/?name=${person.names[0]}&background=random`
+                              }
+                              alt=""
+                              className="h-10 w-10 rounded-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-gray-900">{person.names[0]}</span>
+                              {(person.title || person.department) && (
+                                <span className="text-xs text-gray-500">
+                                  {[person.title, person.department].filter(Boolean).join(', ')}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                        {inputMenuSearchResults.groups.length > 0 && (
+                          <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 bg-gray-50 border-y border-gray-100">
+                            Groups
                           </div>
                         )}
+                        {inputMenuSearchResults.groups.map((group) => (
+                          <button
+                            key={group}
+                            type="button"
+                            data-menu-item="true"
+                            onClick={() => addChip(group)}
+                            className={`flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-gray-700 ${INPUT_MENU_ITEM_CLASS}`}
+                          >
+                            <Users className="h-4 w-4 shrink-0 text-gray-400" />
+                            <span>{group}</span>
+                          </button>
+                        ))}
+                        {inputMenuSearchResults.users.length === 0 &&
+                          inputMenuSearchResults.groups.length === 0 && (
+                            <div className="px-4 py-8 text-center">
+                              <p className="text-sm text-gray-500">No people or groups found</p>
+                            </div>
+                          )}
                       </>
                     ) : activeSupergroupCategory ? (
                       <>
@@ -1905,7 +1948,7 @@ export default function App() {
                           data-menu-item="true"
                           data-menu-back="true"
                           onClick={() => setInputMenuCategoryId(null)}
-                          className="sticky top-0 z-10 flex w-full items-center gap-2 border-b border-gray-100 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-900 hover:bg-gray-50"
+                          className={`sticky top-0 z-10 flex w-full items-center gap-2 border-b border-gray-100 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-900 ${INPUT_MENU_ITEM_CLASS}`}
                         >
                           <ChevronLeft className="h-4 w-4 shrink-0 text-gray-500" />
                           <span className="min-w-0 truncate">{activeSupergroupCategory.label}</span>
@@ -1916,7 +1959,7 @@ export default function App() {
                             type="button"
                             data-menu-item="true"
                             onClick={() => addChip(option)}
-                            className="w-full px-4 py-3 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                            className={`w-full px-4 py-3 text-left text-sm text-gray-700 ${INPUT_MENU_ITEM_CLASS}`}
                           >
                             {option}
                           </button>
@@ -1926,54 +1969,55 @@ export default function App() {
                       // Suggestions for all modes (including Advanced 2 when empty)
                       <>
                         <div className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-gray-100">Suggestions</div>
-                        {[
-                          { label: 'Team', desc: 'Person(s) that share one or more teams in common with employee' },
-                          { label: 'Peers', desc: 'Everyone (except the employee) who reports to the same manager' },
-                          { label: 'Reports', desc: 'Everyone that reports directly to the employee' },
-                          { label: 'All reports', desc: 'Everyone that reports up through the employee' },
-                          { label: 'Department', desc: 'Person(s) that share department in common with employee' },
-                          { label: 'Location', desc: 'Person(s) that share the same work location as employee' },
-                          { label: 'Entity', desc: 'Everyone in the same legal entity as the employee' },
-                          { label: 'Title', desc: 'Nearest manager up the reporting chain with the specified title', hasMore: true },
-                          { label: 'Level', desc: 'Nearest manager up the reporting chain at or above the specified level', hasMore: true },
-                          { label: 'Business partner', desc: 'The employee\'s business partner(s) of the...', hasMore: true },
-                          { label: 'Client group', desc: 'The business partner\'s supported employees for the specified business partner group', hasMore: true }
-                        ].map(option => (
+                        {recentGroups.map((label) => {
+                          const suggestion = getSuggestionByLabel(label);
+                          return (
+                            <button
+                              key={`recent-${label}`}
+                              type="button"
+                              data-menu-item="true"
+                              onClick={() => addChip(label)}
+                              className={`group flex w-full items-center justify-between px-4 py-2.5 text-left ${INPUT_MENU_ITEM_CLASS}`}
+                            >
+                              <div className="flex min-w-0 items-center gap-2">
+                                <Users className="h-4 w-4 shrink-0 text-gray-400" />
+                                <div className="flex min-w-0 flex-col">
+                                  {suggestion ? (
+                                    <span className="text-sm font-medium text-gray-700">
+                                      {suggestion.label}:{' '}
+                                      <span className="font-normal text-gray-500">{suggestion.desc}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="truncate text-sm font-medium text-gray-700">{label}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                        {INPUT_SUGGESTIONS.filter((option) => !recentGroups.includes(option.label)).map((option) => (
                           <button 
                             key={option.label}
+                            type="button"
                             data-menu-item="true"
                             onClick={() => addChip(option.label)}
-                            className="w-full px-4 py-2.5 text-left hover:bg-gray-50 transition-colors flex items-center justify-between group"
+                            className={`group flex w-full items-center justify-between px-4 py-2.5 text-left ${INPUT_MENU_ITEM_CLASS}`}
                           >
                             <div className="flex flex-col">
                               <span className="text-sm font-medium text-gray-700">{option.label}: <span className="font-normal text-gray-500">{option.desc}</span></span>
                             </div>
-                            {option.hasMore && <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />}
+                            {'hasMore' in option && option.hasMore && <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />}
                           </button>
                         ))}
                         
                         <div className="px-4 py-2 mt-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-t border-gray-100 bg-gray-50">The Employee's</div>
-                        {[
-                          'Manager',
-                          'Hired by',
-                          'Work location → Employees in location',
-                          'Termination info → Direct reports new manager',
-                          'Termination info → Termination initiator',
-                          'Headcount Allocation → Associated employee',
-                          'Headcount Allocation → Backfill for employee',
-                          'Application → Referred by',
-                          'Application → Employee candidate',
-                          'Application → Application recruiter',
-                          'Application → Sourcing credit',
-                          'Application → Added by',
-                          'Candidate application → Referred by',
-                          'Current Long-term leave → Processed by'
-                        ].map(option => (
+                        {INPUT_EMPLOYEE_OPTIONS.filter((option) => !recentGroups.includes(option)).map((option) => (
                           <button 
                             key={option}
+                            type="button"
                             data-menu-item="true"
                             onClick={() => addChip(option)}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm text-gray-700 transition-colors flex items-center justify-between group"
+                            className={`group flex w-full items-center justify-between px-4 py-3 text-left text-sm text-gray-700 ${INPUT_MENU_ITEM_CLASS}`}
                           >
                             <span>{option}</span>
                             <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />
@@ -1988,7 +2032,7 @@ export default function App() {
                             data-menu-item="true"
                             data-category-id={category.id}
                             onClick={() => setInputMenuCategoryId(category.id)}
-                            className="group flex w-full items-center justify-between px-4 py-3 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                            className={`group flex w-full items-center justify-between px-4 py-3 text-left text-sm text-gray-700 ${INPUT_MENU_ITEM_CLASS}`}
                           >
                             <span>{category.label}</span>
                             <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500" />

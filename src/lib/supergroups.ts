@@ -487,6 +487,10 @@ export function isSupergroupOption(label: string): boolean {
   return ALL_SUPERGROUP_OPTIONS.has(label);
 }
 
+export function getAllSupergroupOptionLabels(): string[] {
+  return Array.from(ALL_SUPERGROUP_OPTIONS);
+}
+
 export function getSupergroupCategory(id: string): SupergroupCategory | undefined {
   return SUPERGROUP_CATEGORIES.find((category) => category.id === id);
 }
