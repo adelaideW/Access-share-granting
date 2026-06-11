@@ -329,6 +329,88 @@ function allAccessEmails(peopleList: Person[]): string[] {
   return Array.from(set);
 }
 
+type PreviewRow = {
+  key: string;
+  username: string;
+  role: string;
+  accessType: AccessLevel;
+  avatar: string;
+};
+
+function formatPersonJobTitle(person: Person): string {
+  const parts = [person.title, person.department].filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : '—';
+}
+
+function lookupPreviewPersonMeta(
+  name: string,
+  grantRow: Person,
+  directoryPeople: Person[]
+): Pick<PreviewRow, 'username' | 'role' | 'avatar'> {
+  if (!grantRow.isGroup && grantRow.names.length === 1 && grantRow.names[0] === name) {
+    return {
+      username: name,
+      role: formatPersonJobTitle(grantRow),
+      avatar:
+        grantRow.avatar ??
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+    };
+  }
+
+  const directoryMatch = findMatchedPerson(bulkDirectory, name, 'name');
+  if (directoryMatch) {
+    const rosterMatch = directoryPeople.find(
+      (p) => p.names[0].toLowerCase() === directoryMatch.fullName.toLowerCase()
+    );
+    return {
+      username: directoryMatch.fullName,
+      role: rosterMatch ? formatPersonJobTitle(rosterMatch) : '—',
+      avatar: directoryMatch.avatar,
+    };
+  }
+
+  const rosterMatch = directoryPeople.find((p) => p.names[0].toLowerCase() === name.toLowerCase());
+  if (rosterMatch) {
+    return {
+      username: rosterMatch.names[0],
+      role: formatPersonJobTitle(rosterMatch),
+      avatar:
+        rosterMatch.avatar ??
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+    };
+  }
+
+  return {
+    username: name,
+    role: grantRow.isGroup || grantRow.names.length > 1 ? 'Group' : '—',
+    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+  };
+}
+
+function buildPreviewRows(
+  previewDrawer: { mode: 'all' | 'row'; personId?: string } | null,
+  peopleList: Person[],
+  directoryPeople: Person[]
+): PreviewRow[] {
+  if (!previewDrawer) return [];
+
+  const grantRows =
+    previewDrawer.mode === 'row'
+      ? peopleList.filter((p) => p.id === previewDrawer.personId)
+      : peopleList;
+
+  return grantRows.flatMap((grantRow) =>
+    grantRow.names.map((name) => {
+      const meta = lookupPreviewPersonMeta(name, grantRow, directoryPeople);
+      return {
+        key: `${grantRow.id}-${name}`,
+        ...meta,
+        accessType: grantRow.role,
+      };
+    })
+  );
+}
+
 export default function App() {
   const [emailNotification, setEmailNotification] = useState(false);
   const [viewMode, setViewMode] = useState<'default' | 'advanced' | 'advanced2'>('advanced2');
@@ -1083,32 +1165,8 @@ export default function App() {
     }
   };
 
-  const fakeRoster = [
-    { username: 'Avery Lee', role: 'Product Manager', avatar: 'https://i.pravatar.cc/120?u=avery' },
-    { username: 'Noah Kim', role: 'Software Engineer', avatar: 'https://i.pravatar.cc/120?u=noah' },
-    { username: 'Riley Patel', role: 'Data Analyst', avatar: 'https://i.pravatar.cc/120?u=riley' },
-    { username: 'Jordan Smith', role: 'Designer', avatar: 'https://i.pravatar.cc/120?u=jordan' },
-    { username: 'Taylor Nguyen', role: 'Operations', avatar: 'https://i.pravatar.cc/120?u=taylor' },
-    { username: 'Skyler Brown', role: 'Legal', avatar: 'https://i.pravatar.cc/120?u=skyler' },
-    { username: 'Casey Johnson', role: 'Sales', avatar: 'https://i.pravatar.cc/120?u=casey' },
-    { username: 'Morgan Davis', role: 'Finance', avatar: 'https://i.pravatar.cc/120?u=morgan' },
-  ];
-
-  const previewRows = (() => {
-    if (!previewDrawer) return [] as { username: string; role: string; accessType: AccessLevel; avatar: string }[];
-    const targetPerson =
-      previewDrawer.mode === 'row'
-        ? people.find((p) => p.id === previewDrawer.personId)
-        : null;
-    const accessType = targetPerson?.role ?? generalLinkAccessRole;
-    const count = previewDrawer.mode === 'row' ? 5 : 8;
-    return fakeRoster.slice(0, count).map((entry) => ({
-      username: entry.username,
-      role: entry.role,
-      accessType,
-      avatar: entry.avatar,
-    }));
-  })();
+  const directoryPeople = [...searchablePeople, ...availablePeople];
+  const previewRows = buildPreviewRows(previewDrawer, people, directoryPeople);
 
   const snackbarElapsedMs = snackbarMessage
     ? Math.min(5000, Math.max(0, (snackbarTick || Date.now()) - snackbarStartedAt))
@@ -3059,7 +3117,8 @@ export default function App() {
               </div>
               <div className="overflow-y-auto px-8 py-6">
                 <div className="mb-4 text-sm text-gray-600">
-                  Demo roster preview for granted access in this prototype.
+                  {previewRows.length} {previewRows.length === 1 ? 'person' : 'people'} with access
+                  {previewDrawer.mode === 'row' ? ' in this row' : ''}.
                 </div>
                 <div className="overflow-hidden rounded-xl border border-gray-200">
                   <table className="min-w-full text-left">
@@ -3072,7 +3131,7 @@ export default function App() {
                     </thead>
                     <tbody>
                       {previewRows.map((row) => (
-                        <tr key={`${row.username}-${row.role}`} className="border-t border-gray-100 text-sm text-gray-800">
+                        <tr key={row.key} className="border-t border-gray-100 text-sm text-gray-800">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2.5">
                               <img
