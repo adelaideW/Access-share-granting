@@ -156,3 +156,17 @@ export function filterInputMenuSearch(
 export function getSuggestionByLabel(label: string) {
   return INPUT_SUGGESTIONS.find((option) => option.label === label);
 }
+
+/** Recent groups first, then static suggestions — capped for the Suggestions section. */
+export function getDisplayedSuggestions(recentGroups: string[], limit = 3): string[] {
+  const labels: string[] = [];
+  for (const label of recentGroups) {
+    if (labels.length >= limit) break;
+    if (!labels.includes(label)) labels.push(label);
+  }
+  for (const option of INPUT_SUGGESTIONS) {
+    if (labels.length >= limit) break;
+    if (!labels.includes(option.label)) labels.push(option.label);
+  }
+  return labels;
+}

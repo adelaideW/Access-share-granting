@@ -58,10 +58,10 @@ import {
 import { inferToastTone, type SnackbarTone } from './lib/snackbarTone.ts';
 import {
   filterInputMenuSearch,
+  getDisplayedSuggestions,
   getSuggestionByLabel,
   INPUT_EMPLOYEE_OPTIONS,
   INPUT_MENU_ITEM_CLASS,
-  INPUT_SUGGESTIONS,
   isGroupSelection,
 } from './lib/inputMenuOptions.ts';
 import {
@@ -1298,6 +1298,7 @@ export default function App() {
   const directoryPeople = [...searchablePeople, ...availablePeople];
   const inputMenuSearchResults = filterInputMenuSearch(inputValue, searchablePeople, bulkDirectory);
   const inputMenuHasQuery = inputValue.trim() !== '';
+  const displayedSuggestions = getDisplayedSuggestions(recentGroups, 3);
   const previewRows = buildPreviewRows(previewDrawer, people, directoryPeople);
 
   const snackbarElapsedMs = snackbarMessage
@@ -1969,18 +1970,21 @@ export default function App() {
                       // Suggestions for all modes (including Advanced 2 when empty)
                       <>
                         <div className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-gray-100">Suggestions</div>
-                        {recentGroups.map((label) => {
+                        {displayedSuggestions.map((label) => {
                           const suggestion = getSuggestionByLabel(label);
+                          const isRecent = recentGroups.includes(label);
                           return (
                             <button
-                              key={`recent-${label}`}
+                              key={`suggestion-${label}`}
                               type="button"
                               data-menu-item="true"
                               onClick={() => addChip(label)}
                               className={`group flex w-full items-center justify-between px-4 py-2.5 text-left ${INPUT_MENU_ITEM_CLASS}`}
                             >
                               <div className="flex min-w-0 items-center gap-2">
-                                <Users className="h-4 w-4 shrink-0 text-gray-400" />
+                                {isRecent && !suggestion && (
+                                  <Users className="h-4 w-4 shrink-0 text-gray-400" />
+                                )}
                                 <div className="flex min-w-0 flex-col">
                                   {suggestion ? (
                                     <span className="text-sm font-medium text-gray-700">
@@ -1992,37 +1996,12 @@ export default function App() {
                                   )}
                                 </div>
                               </div>
+                              {suggestion && 'hasMore' in suggestion && suggestion.hasMore && (
+                                <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500" />
+                              )}
                             </button>
                           );
                         })}
-                        {INPUT_SUGGESTIONS.filter((option) => !recentGroups.includes(option.label)).map((option) => (
-                          <button 
-                            key={option.label}
-                            type="button"
-                            data-menu-item="true"
-                            onClick={() => addChip(option.label)}
-                            className={`group flex w-full items-center justify-between px-4 py-2.5 text-left ${INPUT_MENU_ITEM_CLASS}`}
-                          >
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium text-gray-700">{option.label}: <span className="font-normal text-gray-500">{option.desc}</span></span>
-                            </div>
-                            {'hasMore' in option && option.hasMore && <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />}
-                          </button>
-                        ))}
-                        
-                        <div className="px-4 py-2 mt-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-t border-gray-100 bg-gray-50">The Employee's</div>
-                        {INPUT_EMPLOYEE_OPTIONS.filter((option) => !recentGroups.includes(option)).map((option) => (
-                          <button 
-                            key={option}
-                            type="button"
-                            data-menu-item="true"
-                            onClick={() => addChip(option)}
-                            className={`group flex w-full items-center justify-between px-4 py-3 text-left text-sm text-gray-700 ${INPUT_MENU_ITEM_CLASS}`}
-                          >
-                            <span>{option}</span>
-                            <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />
-                          </button>
-                        ))}
 
                         <div className="px-4 py-2 mt-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-t border-gray-100 bg-gray-50">Categories</div>
                         {SUPERGROUP_CATEGORIES.map((category) => (
@@ -2036,6 +2015,20 @@ export default function App() {
                           >
                             <span>{category.label}</span>
                             <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500" />
+                          </button>
+                        ))}
+
+                        <div className="px-4 py-2 mt-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-t border-gray-100 bg-gray-50">The Employee's</div>
+                        {INPUT_EMPLOYEE_OPTIONS.map((option) => (
+                          <button 
+                            key={option}
+                            type="button"
+                            data-menu-item="true"
+                            onClick={() => addChip(option)}
+                            className={`group flex w-full items-center justify-between px-4 py-3 text-left text-sm text-gray-700 ${INPUT_MENU_ITEM_CLASS}`}
+                          >
+                            <span>{option}</span>
+                            <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />
                           </button>
                         ))}
                       </>
