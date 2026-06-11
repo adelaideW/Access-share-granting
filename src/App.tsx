@@ -58,11 +58,8 @@ import {
 import { inferToastTone, type SnackbarTone } from './lib/snackbarTone.ts';
 import {
   filterInputMenuSearch,
-  getDisplayedSuggestions,
-  getSuggestionByLabel,
   INPUT_EMPLOYEE_OPTIONS,
   INPUT_MENU_ITEM_CLASS,
-  isGroupSelection,
 } from './lib/inputMenuOptions.ts';
 import {
   getSupergroupCategory,
@@ -458,7 +455,6 @@ export default function App() {
   const organizationDisplayName = 'Acme Corp';
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [inputMenuCategoryId, setInputMenuCategoryId] = useState<string | null>(null);
-  const [recentGroups, setRecentGroups] = useState<string[]>([]);
   const [isBulkAddOpen, setIsBulkAddOpen] = useState(false);
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -826,17 +822,10 @@ export default function App() {
     showToast('Transfer complete');
   };
 
-  const recordRecentGroup = (label: string) => {
-    const directory = [...searchablePeople, ...availablePeople];
-    if (!isGroupSelection(label, directory, bulkDirectory)) return;
-    setRecentGroups((prev) => [label, ...prev.filter((entry) => entry !== label)].slice(0, 8));
-  };
-
   const addChip = (chip: string) => {
     if (!selectedChips.includes(chip)) {
       setSelectedChips([...selectedChips, chip]);
     }
-    recordRecentGroup(chip);
     setInputValue('');
     setInputMenuCategoryId(null);
   };
@@ -895,7 +884,6 @@ export default function App() {
       role: 'View as viewer',
       isGroup: merged.length > 1,
     };
-    merged.forEach((name) => recordRecentGroup(name));
     setPeople((prev) => [...prev, newEntry]);
     setSelectedChips([]);
     setInputValue('');
@@ -1298,7 +1286,6 @@ export default function App() {
   const directoryPeople = [...searchablePeople, ...availablePeople];
   const inputMenuSearchResults = filterInputMenuSearch(inputValue, searchablePeople, bulkDirectory);
   const inputMenuHasQuery = inputValue.trim() !== '';
-  const displayedSuggestions = getDisplayedSuggestions(recentGroups, 3);
   const previewRows = buildPreviewRows(previewDrawer, people, directoryPeople);
 
   const snackbarElapsedMs = snackbarMessage
@@ -1967,43 +1954,8 @@ export default function App() {
                         ))}
                       </>
                     ) : (
-                      // Suggestions for all modes (including Advanced 2 when empty)
                       <>
-                        <div className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-gray-100">Suggestions</div>
-                        {displayedSuggestions.map((label) => {
-                          const suggestion = getSuggestionByLabel(label);
-                          const isRecent = recentGroups.includes(label);
-                          return (
-                            <button
-                              key={`suggestion-${label}`}
-                              type="button"
-                              data-menu-item="true"
-                              onClick={() => addChip(label)}
-                              className={`group flex w-full items-center justify-between px-4 py-2.5 text-left ${INPUT_MENU_ITEM_CLASS}`}
-                            >
-                              <div className="flex min-w-0 items-center gap-2">
-                                {isRecent && !suggestion && (
-                                  <Users className="h-4 w-4 shrink-0 text-gray-400" />
-                                )}
-                                <div className="flex min-w-0 flex-col">
-                                  {suggestion ? (
-                                    <span className="text-sm font-medium text-gray-700">
-                                      {suggestion.label}:{' '}
-                                      <span className="font-normal text-gray-500">{suggestion.desc}</span>
-                                    </span>
-                                  ) : (
-                                    <span className="truncate text-sm font-medium text-gray-700">{label}</span>
-                                  )}
-                                </div>
-                              </div>
-                              {suggestion && 'hasMore' in suggestion && suggestion.hasMore && (
-                                <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500" />
-                              )}
-                            </button>
-                          );
-                        })}
-
-                        <div className="px-4 py-2 mt-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-t border-gray-100 bg-gray-50">Categories</div>
+                        <div className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-gray-100">Categories</div>
                         {SUPERGROUP_CATEGORIES.map((category) => (
                           <button
                             key={category.id}
