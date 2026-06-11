@@ -561,6 +561,7 @@ export default function App() {
   const peopleRowsScrollRef = useRef<HTMLDivElement>(null);
   const previousPeopleCountRef = useRef(people.length);
   const inputRef = useRef<HTMLDivElement>(null);
+  const peopleInputRef = useRef<HTMLInputElement>(null);
   const mainInputMenuRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const accessDropdownRef = useRef<HTMLDivElement>(null);
@@ -822,12 +823,23 @@ export default function App() {
     showToast('Transfer complete');
   };
 
+  const refocusPeopleInput = () => {
+    setIsInputFocused(true);
+    requestAnimationFrame(() => {
+      mainInputMenuRef.current
+        ?.querySelectorAll<HTMLElement>('button[data-menu-item="true"]')
+        .forEach((el) => el.classList.remove('bg-gray-50'));
+      peopleInputRef.current?.focus();
+    });
+  };
+
   const addChip = (chip: string) => {
     if (!selectedChips.includes(chip)) {
       setSelectedChips([...selectedChips, chip]);
     }
     setInputValue('');
     setInputMenuCategoryId(null);
+    refocusPeopleInput();
   };
 
   const closeInputMenu = () => {
@@ -1796,7 +1808,7 @@ export default function App() {
                 }`}
                 onClick={() => {
                   setIsInputFocused(true);
-                  document.getElementById('people-input')?.focus();
+                  peopleInputRef.current?.focus();
                 }}
               >
                 {selectedChips.map(chip => (
@@ -1814,6 +1826,7 @@ export default function App() {
                   </div>
                 ))}
                 <input 
+                  ref={peopleInputRef}
                   id="people-input"
                   type="text" 
                   value={inputValue}
@@ -1824,11 +1837,9 @@ export default function App() {
                     if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && isInputFocused) {
                       e.preventDefault();
                       requestAnimationFrame(() => {
-                        const menu = document.getElementById('main-input-menu');
+                        const menu = mainInputMenuRef.current;
                         const firstItem = menu?.querySelector<HTMLElement>('button[data-menu-item="true"]');
-                        if (menu instanceof HTMLElement) {
-                          focusMenuItem(firstItem ?? undefined, menu);
-                        }
+                        focusMenuItem(firstItem ?? undefined, menu);
                       });
                     }
                   }}
